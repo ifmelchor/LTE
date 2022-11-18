@@ -1,0 +1,13 @@
+name = "LTE"
+uuid = "80e62fe8-6599-4794-829e-4c1779990d8c"
+authors = ["Ivan Melchor <ifmelchor@unrn.edu.ar> and contributors"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
