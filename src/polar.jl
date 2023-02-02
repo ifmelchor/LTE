@@ -7,16 +7,23 @@
 
 using ComplexValues
 
-function _polar(data::Array{Float64,2}, fs::Integer, fqr::Union{Tuple{Integer,Integer}, Nothing}, fq_band::Tuple{Float64,Float64}; NW=3.5, pad=1.0)
+"""
+    _polar(*args)
 
-    freq, csm_svd = _csm(data, fs, fqr, fq_band, NW=NW, pad=pad)
+Perform polarization analysis in the frequency domain.
+For increasing the confidence in the measure use lwin, nadv, and nwin and twoside (optional) that applies a moving-window approach
+"""
+function _polar(data::Array{Float64,2}, base::LTEBase)
+
+    # compute de the SVD of the spectral covariance matrix of ZNE data
+    freq, csm_svd = csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
 
     # compute polar degree
     degree = [(3*sum(s.S.^2)-sum(s.S)^2)/(2*sum(s.S)^2) for s in csm_svd]
     
     # compute rectilinearity of Vt
     z_rot = map(_rotate_vector, [s.Vt[1,:] for s in csm_svd])
-    rect = map(_rectiliniarity, z_rot)
+    rect  = map(_rectiliniarity, z_rot)
     
     # get angles
     angles = map(_angles, z_rot)

@@ -1,134 +1,173 @@
 #!/usr/local/bin julia
 # coding=utf-8
 
-# Utility functions for .jl
-
 # Ivan Melchor
 
 
-function lte_run(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1}, Nothing}, fs::Integer, nwin::Integer, lwin::Integer, nini::Integer, fq_band::Tuple{Float64,Float64}, NW::Float64, pad::Float64, dsar::Bool, opt::Bool, polar::Bool, pe_order::Integer, pe_delta::Integer, opt_twin::Float64, opt_th::Float64)
+"""
+   sta_lte_run(*args)
 
-    # comp info:
+Funcion LTE-station para calculcar espectrograma, polargrama, etc...
+"""
+function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,1}, Nothing}, channels::Vector{String}, fs::Integer, nwin::Integer, lwin::Integer, nsubwin::Union{Integer,Nothing}, lsubwin::Union{Integer,Nothing}, nadv::Union{Float64,Nothing}, fq_band::Tuple{Float64,Float64}, NW::Float64, pad::Float64, add_param::Bool, polar::Bool, pe_order::Integer, pe_delta::Integer, ap_twin::Float64, ap_th::Float64)
+
+    # channel info for polarization analysis:
     #  1 --> Z
-    #  2 --> 
-    #  3 --> 
+    #  2 --> N
+    #  3 --> E
 
-    ncomp = size(base.s_data)[1]
-    ndata = size(base.s_data)[2]
-    freq, fqr = _fqbds(ndata, fs, fq_band, pad)
-    nfs = size(freq)[1]
+    if size(channels, 1) != size(s_data, 1)
+        throw(ArgumentError("nro of components and seismic-data-matrix raw's must be equal"))
+    end
 
+    # compute the frequency domain
+    if lswin
+        freq, fqr = _fqbds(lswin, fs, fq_band, pad=pad)
+    else
+        freq, fqr = _fqbds(lwin, fs, fq_band, pad=pad)
+    end
+    
     # define base
-    base = LTEBase(s_data, d_data, freq, fqr, fq_band, fs, nfs, NW, pad, nwin, lwin, nadv, nini, dsar, opt, polar, pe_order, pe_delta, opt_twin, opt_th)
-    lte = _run(base)
+    nfs = size(freq, 1)
+    base = LTEBase(s_data, d_data, channels, fs, freq, fq_band, fqr, nfs, nwin, lwin, nsubwin, lsubwin, nadv, NW, pad, add_param, polar, pe_order, pe_delta, ap_twin, ap_th)
+    
+    # run lte
+    lte = _starun(base)
 
     return lte
 end
 
 
-function polargram(data::Array{Float64,2}, fs::Integer, nwin::Integer, lwin::Integer, nini::Integer, fq_band::Tuple{Float64,Float64}; NW=3.5, pad=1.0)
+"""
+   _empty_lte(*args)
 
-    ndata = size(base.s_data)[2]
-    freq, fqr = _fqbds(ndata, fs, fq_band, pad)
-
-    degree = Array{Float64}(undef, nwin, base.nfs)
-    rect = Array{Float64}(undef, nwin, base.nfs)
-    azimuth = Array{Float64}(undef, nwin, base.nfs)
-    elev = Array{Float64}(undef, nwin, base.nfs)
-    phyHH = Array{Float64}(undef, nwin, base.nfs)
-    phyVH = Array{Float64}(undef, nwin, base.nfs)
-
-    for n in 1:base.nwin
-        ninikk = base.nini + base.nadv*(n-1)
-        data_n = @view base.data[:, ninikk:ninikk+base.lwin]
-        polar = _polar(data_n, fs, fqr, fq_band, NW=base.NW, pd=base.pad)
-        degree[n,:] = polar.degree
-        azimuth[n,:] = polar.azimuth
-        elev[n,:] = polar.elev
-        phyHH[n,:] = polar.phyHH
-        phyVH[n,:] = polar.phyVH
-    end
-    
-    return PParams(freq, degree, rect, azimuth, elev, phyHH, phyVH)
-end
-
-
+Genera un dict vacio para llenar durante el procesado.
+"""
 function _empty_lte(base::LTEBase)
-    dict = Dict("spec"=>Dict(), "npe"=>Dict())
-    for c in 1:base.ncomp
-        dict["spec"][c] = Array{Float64}(undef, base.nwin, base.nfs)
-        dict["erg"][c]  = Array{Float64}(undef, base.nwin)
-        dict["dfq"][c]  = Array{Float64}(undef, base.nwin)
-        dict["cfq"][c]  = Array{Float64}(undef, base.nwin)
-        dict["pe"][c]   = Array{Float64}(undef, base.nwin)
+    dict = Dict()
+    
+    for chan in base.channels
+        dict[chan] = Dict()
+        dict[chan]["specgram"]    = Array{Float64}(undef, base.nwin, base.nfs)
+        dict[chan]["energy"]      = Array{Float64}(undef, base.nwin)
+        dict[chan]["fq_dominant"] = Array{Float64}(undef, base.nwin)
+        dict[chan]["fq_centroid"] = Array{Float64}(undef, base.nwin)
+        dict[chan]["perm_entr"]   = Array{Float64}(undef, base.nwin)
     end
 
-    if base.dsar
-        dict["dsar"] = Array{Float64}(undef, base.nwin)
-    end
 
-    if base.opt
-        for attr in ("vlf", "lf", "vlar", "rsam", "lrar", "mf", "rmar", "hf")
-            dict[attr] = Array{Float64}(undef, base.nwin)
+    if base.add_param
+        dict["opt"] = Dict()
+        for attr in ("vlf", "lf", "vlar", "rsam", "lrar", "mf", "rmar", "hf", "dsar")
+            dict["opt"][attr] = Array{Float64}(undef, base.nwin)
         end
     end
 
+
     if base.polar
         dict["polar"] = Dict()
-        dict["polar"]["degree"] = Array{Float64}(undef, base.nwin, base.nfs)
-        dict["polar"]["rect"] = Array{Float64}(undef, base.nwin, base.nfs)
-        dict["polar"]["azimuth"] = Array{Float64}(undef, base.nwin, base.nfs)
-        dict["polar"]["elev"] = Array{Float64}(undef, base.nwin, base.nfs)
+        dict["polar"]["degree"]   = Array{Float64}(undef, base.nwin, base.nfs)
+        dict["polar"]["rect"]     = Array{Float64}(undef, base.nwin, base.nfs)
+        dict["polar"]["azimuth"]  = Array{Float64}(undef, base.nwin, base.nfs)
+        dict["polar"]["elev"]     = Array{Float64}(undef, base.nwin, base.nfs)
+        dict["polar"]["phyhh"]    = Array{Float64}(undef, base.nwin, base.nfs)
+        dict["polar"]["phyvh"]    = Array{Float64}(undef, base.nwin, base.nfs)
     end
 
     return dict
 end
 
 
-function _run(base::LTEBase)
-    dlte = _empty_lte(base) # build empty dictionary
+"""
+   _starun(*args)
+
+Core del procesamiento LTE
+"""
+function _starun(base::LTEBase)
+    dlte = _empty_lte(base) # define an empty dictionary
 
     for n in 1:base.nwin
-        ninikk = base.nini + base.nadv*(n-1)
-        
-        for c in 1:base.ncomp
-            cdata = @view base.sdata[c, ninikk:ninikk+base.lwin]
-            cspe = _spectral(cdata, base.fs, base.fqminmax, base.fq_band, NW=base.NW, pd=base.pad)
-            dlte["spec"][c][n,:] = cspe.S
-            dlte["erg"][c][n] = cspe.erg
-            dlte["dfq"][c][n] = cspe.dominant
-            dlte["cfq"][c][n] = cspe.centroid
-            dlte["pe"][c][n] = _PE(cdata, base.pe_order, base.pe_delta, base.fq_band, base.fs)
-            
-            if c==1 # comp 1 --> Z
-                if base.dsar 
-                    dict["dsar"][n] = _dsar(cdata, base.fs)
-                end
+        n0 = floor(Int, base.lwin*(n-1))
+        nf = floor(Int, n0 + base.lwin)
+        sdata_n = @view base.seis_data[:, n0:nf]
 
-                if base.opt
-                    copt = _optparams(cdata, base.fs, twindow=base.opt_twin, threshold=base.opt_th)
-                    dict["vlf"]  = copt.vlf
-                    dict["lf"] = copt.lf
-                    dict["vlar"] = copt.vlar
-                    dict["rsam"] = copt.rsam
-                    dict["lrar"] = copt.lrar
-                    dict["mf"] = copt.mf
-                    dict["rmar"] = copt.rmar
-                    dict["hf"] = copt.hf
-                end
-            end
+        if !isnothing(base.disp_data)
+            ddata_n = @view base.disp_data[n0:nf]
+        else
+            ddata_n = nothing
         end
         
-        if base.polar
-            data_n = @view base.data[:, ninikk:ninikk+base.lwin]
-            polar = _polar(data_n, base.fs, base.fqminmax, base.fq_band, NW=base.NW, pd=base.pad)
+        for (c, chan) in enumerate(base.channels)
+            if base.add_param & c==1
+                cspe, perm_entr, copt = _core(sdata_n[c, :], ddata_n, base, true)
+                dict["opt"]["vlf"]  = copt.vlf
+                dict["opt"]["lf"]   = copt.lf
+                dict["opt"]["vlar"] = copt.vlar
+                dict["opt"]["rsam"] = copt.rsam
+                dict["opt"]["lrar"] = copt.lrar
+                dict["opt"]["mf"]   = copt.mf
+                dict["opt"]["rmar"] = copt.rmar
+                dict["opt"]["hf"]   = copt.hf
+                dict["opt"]["dsar"] = copt.dsar
+            else
+                cspe, perm_entr, copt = _core(sdata_n[c, :], nothing, base, false)
+            end
+
+            dict[chan]["specgram"][n,:]  = cspe.S
+            dict[chan]["energy"][n]      = cspe.erg
+            dict[chan]["fq_dominant"][n] = cspe.dominant
+            dict[chan]["fq_centroid"][n] = cspe.centroid
+            dict[chan]["perm_entr"][n]   = perm_entr
+
+        end
+        
+        # only when three components are available
+        if c==3 & base.polar
+            polar = _polar(sdata_n, base)
             dict["polar"]["degree"][n,:]  = polar.degree
             dict["polar"]["rect"][n,:]    = polar.rect
             dict["polar"]["azimuth"][n,:] = polar.azimuth
             dict["polar"]["elev"][n,:]    = polar.elev
+            dict["polar"]["phyhh"][n,:]   = polar.phyhh
+            dict["polar"]["phyvh"][n,:]   = polar.phyvh
         end
     
     end
     
-    return dlte
+    return dict
+end
+
+
+"""
+    _core(args)
+
+Compute core parameters for LTE
+"""
+function _core(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1}}, base::LTEBase, opt_params::Bool)
+
+    # compute psd
+    sxx, freq = _psd(s_data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
+
+    # dominant freq
+    domfreq = freq[findmax(sxx)[2]]
+            
+    # centroid freq
+    cenfreq = dot(freq,sxx)/sum(sxx)
+            
+    # energy
+    erg = sum(sxx)
+
+    # crate spectral struct
+    spec_p = SParams(freq, sxx, erg, domfreq, cenfreq)
+
+    # permutation entropy
+    perm_entr = _PE(s_data, base.pe_order, base.pe_delta, base.fq_band, base.fs)
+
+    if opt_params
+        opt_p = _optparams(s_data, d_data, base.fs, twindow=base.ap_twin, threshold=base.ap_th)
+    else:
+        opt_p = nothing
+    end
+
+    return spec_p, perm_entr, opt_p
 end

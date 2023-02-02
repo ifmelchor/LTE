@@ -5,51 +5,49 @@
 
 # Ivan Melchor
 
-using Multitaper
+"""
+    _psd(args)
 
+Compute the psd using multitaper approach
+"""
+function _psd(data::Array{Float64,1}, fs::Integer, lwin::Union{Integer,Nothing}, nwin::Union{Integer,Nothing}, nadv::Union{Float64,Nothing}, fqr::Tuple{Integer,Integer}, nfs::Integer, NW::Float64, pad::Float64)
 
-function _fqbds(ndata::Integer, fs::Integer, fq_band::Tuple{Float64,Float64}, pad=1.0)
-    lengt, fftleng, halffreq = Multitaper.output_len(range(ndata), pad)
-    freq = fs*range(0,1,length=fftleng+1)[1:halffreq]
-    frmin = findmin(abs.(freq.-fq_band[1]))[2]
-    frmax = findmin(abs.(freq.-fq_band[2]))[2]
-    freq = freq[frmin:frmax]
+    npts = size(data)
+    frmin, frmax = fqr
+    psd = zeros(Float64, nfs)
+    K = convert(Int64, 2*NW - 1)
 
-    return freq, (frmin, frmax)
-end
+    if !isnothing(nwin) & !isnothing(lwin)
 
-
-function _spectral(data::Array{Float64,1}, fs::Integer, fqr::Union{Tuple{Integer,Integer}, Nothing}, fq_band::Union{Tuple{Float64,Float64}}; NW=3.5, pad=1.0)
-
-    # multitaper psd of data_i
-    si = multispec(data, ctr=true, dt=1/fs, NW=NW, K=K, pad=pad)
-
-    # limit to fq bounds
-    if !ismissing(fqr)
-        frmin = findmin(abs.(si.freq.-fq_band[1]))[2]
-        frmax = findmin(abs.(si.freq.-fq_band[2]))[2]
+        if isnothing(nadv)
+            nadv = 0
+        end
+        
+        for n in 1:nwin
+            n0  = floor(Int, lwin * nadv*(n-1))
+            nf  = floor(Int, n0 + lwin)
+            s_n = multispec(data[n0:nf], ctr=true, dt=1/fs, NW=NW, K=K, pad=pad)
+            psd .+= s_n.S[frmin:frmax]
+        end
+        
+        psd ./= n
+        freq = s_n.freq[frmin:frmax]
     else
-        frmin = fqr[1]
-        frmax = fqr[2]
-    end
-    
-    # get true freq and psd
-    freq = si.freq[frmin:frmax]
-    S = si.S[frmin:frmax]
-    
-    # dominant freq
-    domfreq = freq[findmax(S)[2]]
 
-    # centroid freq
-    cenfreq = dot(freq,S)/sum(S)
+        s    = multispec(data, ctr=true, dt=1/fs, NW=NW, K=K, pad=pad)
+        psd  = s.S[frmin:frmax]
+        freq = s.freq[frmin:frmax]
+    end 
 
-    # energy
-    erg = sum(S)
-
-    return SParams(freq, S, erg, domfreq, cenfreq)
+    return psd, freq
 end
 
 
+"""
+    _crosscorr(args)
+
+Compute the cross spectral correlation of two signals
+"""
 function _crosscorr(data_i::Array{Float64,1}, data_j::Array{Float64,1}, fs::Integer; NW=3.5, pad=1.0)
     
     K = convert(Int64, 2*NW - 1)
@@ -61,31 +59,57 @@ function _crosscorr(data_i::Array{Float64,1}, data_j::Array{Float64,1}, fs::Inte
 end
 
 
-function _csm(data::Array{Float64,2}, fs::Integer, fqr::Union{Tuple{Integer,Integer}, Nothing}, fq_band::Tuple{Float64,Float64}; NW=3.5, pad=1.0)
+"""
+    _csm(args)
 
-    if !ismissing(fqr)
-        ndata = size(data[1,:])
-        freq, (frmin, frmax) = _fqbds(ndata, fs, fq_band, pad)
-        nfs = size(freq)[1]
+Compute the SVD of the average moving Hermitian covariance matrix of data.
+This is useful for ambient noise and polarization analysis
+"""
+function _csm(data::Array{Float64,2}, fs::Integer, lwin::Union{Integer,Nothing}, nwin::Union{Integer,Nothing}, nadv::Union{Float64,Nothing}, fqr::Tuple{Integer,Integer}, nfs::Integer, NW::Float64, pad::Float64)
+
+    # define npts and nro of components 
+    # (for polarization analysis ncomp is 3)
+    ncomp, npts = size(data)
+    frmin, frmax = fqr
+    covm = zeros(ComplexF64, ncomp, ncomp, nfs)
+    
+    # build half part of covm matrix
+    if !isnothing(nwin) & !isnothing(lwin)
+
+        if isnothing(nadv)
+            nadv = 0
+        end
+        
+        for n in 1:nwin
+            n0  = floor(Int, lwin * nadv*(n-1))
+            nf  = floor(Int, n0 + lwin)
+            for i in 1:ncomp
+                for j in i:ncomp
+                    covm[i,j,:] .+= _crosscorr(data[i,n0:nf], data[j,n0:nf], fs, NW=NW, pad=pad)[frmin:frmax, 1]
+                end
+            end
+        end
+
+        covm ./= n
     else
-        frmin = fqr[1]
-        frmax = fqr[2]
-        nfs = frmax-frmin+1
-        freq = nothing
+        for i in 1:ncomp
+            for j in i:ncomp
+                covm[i,j,:] = _crosscorr(data[i,:], data[j,:], fs, NW=NW, pad=pad)[frmin:frmax,1]
+            end
+        end
     end
-
-    csm = Array{ComplexF64}(undef, 3, 3, nfs)
-    for i in 1:3
-        for j in i:3
-            csm[i,j,:] = _crosscorr(data[i,:], data[j,:], fs, NW=NW, pad=pad)[frmin:frmax, 1]
+    
+    # build full covm matrix
+    for i in 1:ncomp
+        for j in i:ncomp
             if i != j
-                csm[j,i,:] = conj(csm[i,j,:])
+                covm[j,i,:] = conj(covm[i,j,:])
             end
         end
     end
 
     # do singular value decomposition
-    csm_svd = map(svd,[csm[:,:,i] for i in 1:size(csm)[3]])
+    covm_svd = map(svd,[covm[:,:,i] for i in 1:nfs])
 
-    return freq, csm_svd
+    return freq, covm_svd
 end

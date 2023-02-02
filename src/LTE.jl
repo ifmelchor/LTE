@@ -1,17 +1,21 @@
 #!/usr/local/bin julia
 # coding=utf-8
 
-# Utility functions for .jl
+# LTE package for SEISVO software
 
 # Ivan Melchor
 
 __precompile__()
 
+
 module LTE
 
     using LinearAlgebra
+    using Multitaper
+    using Statistics
+    using DSP
     
-    export  _polar, lte_run, polargram
+    export lte_run
 
     include("types.jl")
 
