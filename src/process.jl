@@ -165,7 +165,7 @@ function _core(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1}}, base::
 
     if opt_params
         opt_p = _optparams(s_data, d_data, base.fs, twindow=base.ap_twin, threshold=base.ap_th)
-    else:
+    else
         opt_p = nothing
     end
 
