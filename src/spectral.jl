@@ -10,12 +10,12 @@
 
 Compute the psd using multitaper approach
 """
-function _psd(data::Array{Float64,1}, fs::Integer, lwin::Union{Integer,Nothing}, nwin::Union{Integer,Nothing}, nadv::Union{Float64,Nothing}, fqr::Tuple{Integer,Integer}, nfs::Integer, NW::Float64, pad::Float64)
+function _psd(data::Array{Float64,1}, fs::Int64, lwin::Union{Int64,Nothing}, nwin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fqr::Tuple{Int64,Int64}, nfs::Int64, NW::Float64, pad::Float64)
 
     npts = size(data)
+    psd  = zeros(Float64, nfs)
+    K    = convert(Int64, 2*NW - 1)
     frmin, frmax = fqr
-    psd = zeros(Float64, nfs)
-    K = convert(Int64, 2*NW - 1)
 
     if !isnothing(nwin) & !isnothing(lwin)
 
@@ -24,19 +24,22 @@ function _psd(data::Array{Float64,1}, fs::Integer, lwin::Union{Integer,Nothing},
         end
         
         for n in 1:nwin
-            n0  = floor(Int, lwin * nadv*(n-1))
+            n0  = 1 + floor(Int, lwin * nadv*(n-1))
             nf  = floor(Int, n0 + lwin)
             s_n = multispec(data[n0:nf], ctr=true, dt=1/fs, NW=NW, K=K, pad=pad)
             psd .+= s_n.S[frmin:frmax]
+            
+            if n == 1
+                freq = s_n.f[frmin:frmax]
+            end
         end
         
-        psd ./= n
-        freq = s_n.freq[frmin:frmax]
+        psd ./= nwin
     else
 
         s    = multispec(data, ctr=true, dt=1/fs, NW=NW, K=K, pad=pad)
         psd  = s.S[frmin:frmax]
-        freq = s.freq[frmin:frmax]
+        freq = s.f[frmin:frmax]
     end 
 
     return psd, freq
@@ -48,12 +51,12 @@ end
 
 Compute the cross spectral correlation of two signals
 """
-function _crosscorr(data_i::Array{Float64,1}, data_j::Array{Float64,1}, fs::Integer; NW=3.5, pad=1.0)
+function _crosscorr(data_i::Array{Float64,1}, data_j::Array{Float64,1}, fs::Int64; NW=3.5, pad=1.0)
     
-    K = convert(Int64, 2*NW - 1)
+    K   = convert(Int64, 2*NW - 1)
     sij = multispec(data_i, data_j, outp=:spec, dt=1/fs, NW=NW, K=K, ctr=true, pad=pad, guts=true)
-    Si = sum(sij.coef[1].coef, dims=2)
-    Sj = sum(sij.coef[2].coef, dims=2)
+    Si  = sum(sij.coef[1].coef, dims=2)
+    Sj  = sum(sij.coef[2].coef, dims=2)
 
     return Si .* conj(Sj)
 end
@@ -65,13 +68,13 @@ end
 Compute the SVD of the average moving Hermitian covariance matrix of data.
 This is useful for ambient noise and polarization analysis
 """
-function _csm(data::Array{Float64,2}, fs::Integer, lwin::Union{Integer,Nothing}, nwin::Union{Integer,Nothing}, nadv::Union{Float64,Nothing}, fqr::Tuple{Integer,Integer}, nfs::Integer, NW::Float64, pad::Float64)
+function _csm(data::Array{Float64,2}, fs::Int64, lwin::Union{Int64,Nothing}, nwin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fqr::Tuple{Int64,Int64}, nfs::Int64, NW::Float64, pad::Float64)
 
     # define npts and nro of components 
     # (for polarization analysis ncomp is 3)
     ncomp, npts = size(data)
-    frmin, frmax = fqr
     covm = zeros(ComplexF64, ncomp, ncomp, nfs)
+    frmin, frmax = fqr
     
     # build half part of covm matrix
     if !isnothing(nwin) & !isnothing(lwin)
@@ -81,7 +84,7 @@ function _csm(data::Array{Float64,2}, fs::Integer, lwin::Union{Integer,Nothing},
         end
         
         for n in 1:nwin
-            n0  = floor(Int, lwin * nadv*(n-1))
+            n0  = 1 + floor(Int, lwin * nadv*(n-1))
             nf  = floor(Int, n0 + lwin)
             for i in 1:ncomp
                 for j in i:ncomp
@@ -90,7 +93,7 @@ function _csm(data::Array{Float64,2}, fs::Integer, lwin::Union{Integer,Nothing},
             end
         end
 
-        covm ./= n
+        covm ./= nwin
     else
         for i in 1:ncomp
             for j in i:ncomp
@@ -111,5 +114,5 @@ function _csm(data::Array{Float64,2}, fs::Integer, lwin::Union{Integer,Nothing},
     # do singular value decomposition
     covm_svd = map(svd,[covm[:,:,i] for i in 1:nfs])
 
-    return freq, covm_svd
+    return covm_svd
 end

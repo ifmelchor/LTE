@@ -9,7 +9,7 @@
 
 Funcion LTE-station para calculcar espectrograma, polargrama, etc...
 """
-function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,1}, Nothing}, channels::Vector{String}, fs::Integer, nwin::Integer, lwin::Integer, nsubwin::Union{Integer,Nothing}, lsubwin::Union{Integer,Nothing}, nadv::Union{Float64,Nothing}, fq_band::Tuple{Float64,Float64}, NW::Float64, pad::Float64, add_param::Bool, polar::Bool, pe_order::Integer, pe_delta::Integer, ap_twin::Float64, ap_th::Float64)
+function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,1}, Nothing}, channels::Vector{String}, fs::Int64, nwin::Int64, lwin::Int64, nswin::Union{Int64,Nothing}, lswin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fq_band::Vector{Float64}, NW::Float64, pad::Float64, add_param::Bool, polar::Bool, pe_order::Int64, pe_delta::Int64, ap_twin::Int64, ap_th::Float64)
 
     # channel info for polarization analysis:
     #  1 --> Z
@@ -21,7 +21,7 @@ function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,1}, Nothi
     end
 
     # compute the frequency domain
-    if lswin
+    if !isnothing(lswin)
         freq, fqr = _fqbds(lswin, fs, fq_band, pad=pad)
     else
         freq, fqr = _fqbds(lwin, fs, fq_band, pad=pad)
@@ -29,7 +29,7 @@ function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,1}, Nothi
     
     # define base
     nfs = size(freq, 1)
-    base = LTEBase(s_data, d_data, channels, fs, freq, fq_band, fqr, nfs, nwin, lwin, nsubwin, lsubwin, nadv, NW, pad, add_param, polar, pe_order, pe_delta, ap_twin, ap_th)
+    base = LTEBase(s_data, d_data, channels, fs, freq, fq_band, fqr, nfs, nwin, lwin, nswin, lswin, nadv, NW, pad, add_param, polar, pe_order, pe_delta, ap_twin, ap_th)
     
     # run lte
     lte = _starun(base)
@@ -84,10 +84,10 @@ end
 Core del procesamiento LTE
 """
 function _starun(base::LTEBase)
-    dlte = _empty_lte(base) # define an empty dictionary
+    dict = _empty_lte(base) # define an empty dictionary
 
     for n in 1:base.nwin
-        n0 = floor(Int, base.lwin*(n-1))
+        n0 = 1 + floor(Int, base.lwin*(n-1))
         nf = floor(Int, n0 + base.lwin)
         sdata_n = @view base.seis_data[:, n0:nf]
 
@@ -100,15 +100,15 @@ function _starun(base::LTEBase)
         for (c, chan) in enumerate(base.channels)
             if base.add_param & c==1
                 cspe, perm_entr, copt = _core(sdata_n[c, :], ddata_n, base, true)
-                dict["opt"]["vlf"]  = copt.vlf
-                dict["opt"]["lf"]   = copt.lf
-                dict["opt"]["vlar"] = copt.vlar
-                dict["opt"]["rsam"] = copt.rsam
-                dict["opt"]["lrar"] = copt.lrar
-                dict["opt"]["mf"]   = copt.mf
-                dict["opt"]["rmar"] = copt.rmar
-                dict["opt"]["hf"]   = copt.hf
-                dict["opt"]["dsar"] = copt.dsar
+                dict["opt"]["vlf"][n]  = copt.vlf
+                dict["opt"]["lf"][n]   = copt.lf
+                dict["opt"]["vlar"][n] = copt.vlar
+                dict["opt"]["rsam"][n] = copt.rsam
+                dict["opt"]["lrar"][n] = copt.lrar
+                dict["opt"]["mf"][n]   = copt.mf
+                dict["opt"]["rmar"][n] = copt.rmar
+                dict["opt"]["hf"][n]   = copt.hf
+                dict["opt"]["dsar"][n] = copt.dsar
             else
                 cspe, perm_entr, copt = _core(sdata_n[c, :], nothing, base, false)
             end
@@ -122,7 +122,7 @@ function _starun(base::LTEBase)
         end
         
         # only when three components are available
-        if c==3 & base.polar
+        if length(base.channels)==3 & base.polar
             polar = _polar(sdata_n, base)
             dict["polar"]["degree"][n,:]  = polar.degree
             dict["polar"]["rect"][n,:]    = polar.rect
@@ -143,7 +143,7 @@ end
 
 Compute core parameters for LTE
 """
-function _core(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1}}, base::LTEBase, opt_params::Bool)
+function _core(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1}, Nothing}, base::LTEBase, opt_params::Bool)
 
     # compute psd
     sxx, freq = _psd(s_data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)

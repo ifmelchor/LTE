@@ -16,7 +16,7 @@ For increasing the confidence in the measure use lwin, nadv, and nwin and twosid
 function _polar(data::Array{Float64,2}, base::LTEBase)
 
     # compute de the SVD of the spectral covariance matrix of ZNE data
-    freq, csm_svd = csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
+    csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
 
     # compute polar degree
     degree = [(3*sum(s.S.^2)-sum(s.S)^2)/(2*sum(s.S)^2) for s in csm_svd]
@@ -29,10 +29,10 @@ function _polar(data::Array{Float64,2}, base::LTEBase)
     angles = map(_angles, z_rot)
     azi = [a.azimuth for a in angles]
     ele = [a.elev for a in angles]
-    pHH = [a.phyHH for a in angles]
-    pVH = [a.phyVH for a in angles]
+    pHH = [a.phyhh for a in angles]
+    pVH = [a.phyvh for a in angles]
 
-    return PParams(freq, degree, rect, azi, ele, pHH, pVH)
+    return PParams(degree, rect, azi, ele, pHH, pVH)
 end
 
 

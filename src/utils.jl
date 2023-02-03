@@ -14,13 +14,14 @@ using DataFrames
 
 Return freq time series
 """
-function _fqbds(ndata::Integer, fs::Integer, fq_band::Tuple{Float64,Float64}; pad=1.0)
+function _fqbds(ndata::Int64, fs::Int64, fq_band::Vector{Float64}; pad=1.0)
+    
     _, fftleng, halffreq = Multitaper.output_len(range(1,ndata), pad)
-    freq = fs*range(0,1,length=fftleng+1)[1:halffreq]
+    freq    = fs*range(0,1,length=fftleng+1)[1:halffreq]
     freqmin = fq_band[1]
     freqmax = fq_band[2]
-    fleft = findfirst(x -> x >= freqmin, freq)
-    fright = findfirst(freqmax .<= freq)
+    fleft   = findfirst(x -> x >= freqmin, freq)
+    fright  = findfirst(freqmax .<= freq)
     #frmin = findmin(abs.(freq.-fq_band[1]))[2]
     #frmax = findmin(abs.(freq.-fq_band[2]))[2]
 
@@ -33,7 +34,7 @@ end
 
 Perform permutation entropy
 """
-function _PE(data::Array{Float64,1}, ord::Integer, delta::Integer, fq_band::Tuple{Float64,Float64}, fs::Integer)
+function _PE(data::Array{Float64,1}, ord::Int64, delta::Int64, fq_band::Vector{Float64}, fs::Int64)
 
     filt_data = _filt(data, fq_band, fs)
     PE = ChaosTools.permentropy(data, τ=ord, m=delta, base=2)
@@ -48,7 +49,7 @@ end
 
 Filter data between fq_band
 """
-function _filt(data::Array{Float64,1}, fq_band::Tuple{Float64,Float64}, fs::Integer; ctr=true, buttorder=4)
+function _filt(data::Array{Float64,1}, fq_band::Vector{Float64}, fs::Int64; ctr=true, buttorder=4)
 
     # filter data (with zero phase distortion) of buterworth of order 4
 
@@ -69,7 +70,7 @@ end
 
 Compute DSAR measure from displacement data
 """
-function _dsar(data::Array{Float64,1}, fs::Integer; mf_band=(4.,8.), hf_band=(8.,16.), twindow=2, threshold=5.)
+function _dsar(data::Array{Float64,1}, fs::Int64; mf_band=(4.,8.), hf_band=(8.,16.), twindow=2, threshold=5.)
 
     mfdata = abs.(_filt(data, mf_band, fs))
     hfdata = abs.(_filt(data, hf_band, fs))
@@ -87,7 +88,7 @@ end
 
 Compute additional LTE parameters from seismic data
 """
-function _optparams(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1},Nothing}, fs::Integer; twindow=2, threshold=5.)
+function _optparams(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1},Nothing}, fs::Int64; twindow=2, threshold=5.)
 
     remove_outlier = x -> _removeoutliers(x, fs, twindow, threshold)
 
@@ -138,7 +139,7 @@ function Base.:+(op1::OptParams, op2::OptParams)
     return OptParams(vlf, lf, vlar, rsam, lrar, mf, rmar, hf, dsar)
 end
 
-function Base.:/(op::OptParams, n::Integer)
+function Base.:/(op::OptParams, n::Int64)
     vlf  = op.vlf  / n
     lf   = op.lf   / n
     vlar = op.vlar / n
@@ -178,7 +179,7 @@ end
 
 Search for spikes and replace by nan
 """
-function _removeoutliers(data::Array{Union{Float64, Missing},1}, fs::Integer, twindow::Integer, threshold::Float64)
+function _removeoutliers(data::Array{Union{Float64, Missing},1}, fs::Int64, twindow::Int64, threshold::Float64)
 
     ndat = size(data)[1]
     z = _standarize(data)
