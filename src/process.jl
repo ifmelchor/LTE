@@ -9,7 +9,7 @@
 
 Funcion LTE-station para calculcar espectrograma, polargrama, etc...
 """
-function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,1}, Nothing}, channels::Vector{String}, fs::Int64, nwin::Int64, lwin::Int64, nswin::Union{Int64,Nothing}, lswin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fq_band::Vector{Float64}, NW::Float64, pad::Float64, add_param::Bool, polar::Bool, pe_order::Int64, pe_delta::Int64, ap_twin::Int64, ap_th::Float64)
+function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,1}, Nothing}, channels::Vector{String}, fs::Int64, nwin::Int64, lwin::Int64, nswin::Union{Int64,Nothing}, lswin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fq_band::Vector{Float64}, NW::Float64, pad::Float64, add_param::Bool, polar::Bool, pe_order::Int64, pe_delta::Int64, ap_twin::Float64, ap_th::Float64)
 
     # channel info for polarization analysis:
     #  1 --> Z
@@ -43,18 +43,16 @@ end
 
 Genera un dict vacio para llenar durante el procesado.
 """
-function _empty_lte(base::LTEBase)
+function _empty_dict(base::LTEBase)
     dict = Dict()
     
     for chan in base.channels
         dict[chan] = Dict()
-        dict[chan]["specgram"]    = Array{Float64}(undef, base.nwin, base.nfs)
-        dict[chan]["energy"]      = Array{Float64}(undef, base.nwin)
-        dict[chan]["fq_dominant"] = Array{Float64}(undef, base.nwin)
-        dict[chan]["fq_centroid"] = Array{Float64}(undef, base.nwin)
-        dict[chan]["perm_entr"]   = Array{Float64}(undef, base.nwin)
+        dict[chan]["specgram"] = Array{Float64}(undef, base.nwin, base.nfs)
+        for attr in ("energy", "fq_dominant", "fq_centroid", "perm_entr")
+            dict[chan][attr] = Array{Float64}(undef, base.nwin)
+        end
     end
-
 
     if base.add_param
         dict["opt"] = Dict()
@@ -63,15 +61,11 @@ function _empty_lte(base::LTEBase)
         end
     end
 
-
-    if base.polar
+    if length(base.channels)==3 && base.polar
         dict["polar"] = Dict()
-        dict["polar"]["degree"]   = Array{Float64}(undef, base.nwin, base.nfs)
-        dict["polar"]["rect"]     = Array{Float64}(undef, base.nwin, base.nfs)
-        dict["polar"]["azimuth"]  = Array{Float64}(undef, base.nwin, base.nfs)
-        dict["polar"]["elev"]     = Array{Float64}(undef, base.nwin, base.nfs)
-        dict["polar"]["phyhh"]    = Array{Float64}(undef, base.nwin, base.nfs)
-        dict["polar"]["phyvh"]    = Array{Float64}(undef, base.nwin, base.nfs)
+        for attr in ("degree", "rect", "azimuth", "elev", "phyhh", "phyvh")
+            dict["polar"][attr] = Array{Float64}(undef, base.nwin, base.nfs)
+        end
     end
 
     return dict
@@ -84,7 +78,7 @@ end
 Core del procesamiento LTE
 """
 function _starun(base::LTEBase)
-    dict = _empty_lte(base) # define an empty dictionary
+    dict = _empty_dict(base) # define an empty dictionary
 
     for n in 1:base.nwin
         n0 = 1 + floor(Int, base.lwin*(n-1))
@@ -98,7 +92,7 @@ function _starun(base::LTEBase)
         end
         
         for (c, chan) in enumerate(base.channels)
-            if base.add_param & c==1
+            if base.add_param && c==1
                 cspe, perm_entr, copt = _core(sdata_n[c, :], ddata_n, base, true)
                 dict["opt"]["vlf"][n]  = copt.vlf
                 dict["opt"]["lf"][n]   = copt.lf
@@ -108,7 +102,10 @@ function _starun(base::LTEBase)
                 dict["opt"]["mf"][n]   = copt.mf
                 dict["opt"]["rmar"][n] = copt.rmar
                 dict["opt"]["hf"][n]   = copt.hf
-                dict["opt"]["dsar"][n] = copt.dsar
+                if !isnothing(base.disp_data)
+                    dict["opt"]["dsar"][n] = copt.dsar
+                end
+                
             else
                 cspe, perm_entr, copt = _core(sdata_n[c, :], nothing, base, false)
             end
@@ -118,12 +115,11 @@ function _starun(base::LTEBase)
             dict[chan]["fq_dominant"][n] = cspe.dominant
             dict[chan]["fq_centroid"][n] = cspe.centroid
             dict[chan]["perm_entr"][n]   = perm_entr
-
         end
         
         # only when three components are available
-        if length(base.channels)==3 & base.polar
-            polar = _polar(sdata_n, base)
+        if  base.polar
+            polar = _polar(sdata_n[:,:], base)
             dict["polar"]["degree"][n,:]  = polar.degree
             dict["polar"]["rect"][n,:]    = polar.rect
             dict["polar"]["azimuth"][n,:] = polar.azimuth

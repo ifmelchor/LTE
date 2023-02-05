@@ -22,7 +22,7 @@ struct LTEBase
     polar     :: Bool                              # true/false to compute polarization parameters
     pe_order  :: Int64                             # permutation entropy order/dimension
     pe_delta  :: Int64                             # permutation entropy tau
-    ap_twin   :: Int64                             # time window for aditional parameters
+    ap_twin   :: Float64                           # time window for aditional parameters
     ap_th     :: Float64                           # threshold for aditional parameters
 end
 
@@ -36,7 +36,6 @@ end
 
 
 struct PParams
-    freq    :: Union{Array{Float64}, Nothing}
     degree  :: Array{Float64}
     rect    :: Array{Float64}
     azimuth :: Array{Float64}

@@ -5,8 +5,10 @@
 
 # Ivan Melchor
 
-using ChaosTools
-using DataFrames
+using Entropies
+using Multitaper
+using Statistics
+using DSP
 
 
 """
@@ -36,8 +38,8 @@ Perform permutation entropy
 """
 function _PE(data::Array{Float64,1}, ord::Int64, delta::Int64, fq_band::Vector{Float64}, fs::Int64)
 
-    filt_data = _filt(data, fq_band, fs)
-    PE = ChaosTools.permentropy(data, τ=ord, m=delta, base=2)
+    filt_data = _filt(data, (fq_band[1],fq_band[2]), fs)
+    PE = Entropies.permentropy(data, τ=ord, m=delta, base=2)
     normalizedPE = PE / log2(factorial(ord))
 
     return PE
@@ -49,7 +51,7 @@ end
 
 Filter data between fq_band
 """
-function _filt(data::Array{Float64,1}, fq_band::Vector{Float64}, fs::Int64; ctr=true, buttorder=4)
+function _filt(data::Array{Float64,1}, fq_band::Tuple{Float64, Float64}, fs::Int64; ctr=true, buttorder=4)
 
     # filter data (with zero phase distortion) of buterworth of order 4
 
@@ -70,14 +72,14 @@ end
 
 Compute DSAR measure from displacement data
 """
-function _dsar(data::Array{Float64,1}, fs::Int64; mf_band=(4.,8.), hf_band=(8.,16.), twindow=2, threshold=5.)
+function _dsar(data::Array{Float64,1}, fs::Int64; mf_band=(4.,8.), hf_band=(8.,16.), twindow::Float64=2, threshold::Float64=5.)
 
     mfdata = abs.(_filt(data, mf_band, fs))
     hfdata = abs.(_filt(data, hf_band, fs))
     dsar = mfdata./hfdata
 
     # remove outlier
-    dsar_f = _removeoutliers(dsar, fs, twindow, threshold)
+    dsar_f = _removeoutliers(dsar, convert(Int64, twindow*fs), threshold)
 
     return dsar_f
 end
@@ -88,18 +90,18 @@ end
 
 Compute additional LTE parameters from seismic data
 """
-function _optparams(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1},Nothing}, fs::Int64; twindow=2, threshold=5.)
+function _optparams(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1},Nothing}, fs::Int64; twindow::Float64=2., threshold::Float64=5.)
 
-    remove_outlier = x -> _removeoutliers(x, fs, twindow, threshold)
+    remove_outlier = x -> _removeoutliers(x, convert(Int64, twindow*fs), threshold)
 
-    vlf = abs.(_filt(s_data, (.01,.1), fs))
-    lf = abs.(_filt(s_data, (.1,2.), fs))
+    vlf  = abs.(_filt(s_data, (.01,.1), fs))
+    lf   = abs.(_filt(s_data, (.1,2.), fs))
     vlar = vlf./lf
     rsam = abs.(_filt(s_data, (2.,4.5), fs))
     lrar = lf./rsam
-    mf = abs.(_filt(s_data, (4.,8.), fs))
+    mf   = abs.(_filt(s_data, (4.,8.), fs))
     rmar = rsam./mf
-    hf = abs.(_filt(s_data, (8.,16.), fs))
+    hf   = abs.(_filt(s_data, (8.,16.), fs))
     
     fparams = map(remove_outlier, [vlf, lf, vlar, rsam, lrar, mf, rmar, hf])
     vlf_f  = fparams[1]
@@ -130,7 +132,7 @@ function Base.:+(op1::OptParams, op2::OptParams)
     rmar = op1.rmar + op2.rmar
     hf   = op1.hf   + op2.hf
 
-    if !isnothing(op1.dsar) & !isnothing(op2.dsar)
+    if !isnothing(op1.dsar) && !isnothing(op2.dsar)
         dsar = op1.dsar + op2.dsar
     else
         dsar = nothing
@@ -164,7 +166,7 @@ end
 
 Standarize a time series
 """
-function _standarize(data::Array{Union{Float64, Missing},1})
+function _standarize(data::Array{Float64,1})
 
     u = mean(data)
     s = std(data)
@@ -178,17 +180,18 @@ end
     _removeoutliers(*args)
 
 Search for spikes and replace by nan
+    compute mean
 """
-function _removeoutliers(data::Array{Union{Float64, Missing},1}, fs::Int64, twindow::Int64, threshold::Float64)
+function _removeoutliers(data::Array{Float64,1}, twindow::Int64, threshold::Float64, return_mean::Bool=true)
 
     ndat = size(data)[1]
-    z = _standarize(data)
+    z = convert(Array{Union{Missing,Float64}}, _standarize(data))
     cond = z .> threshold
 
     for i in eachindex(cond)
-        if convert(Bool,cond[i])
-            nin = i - twindow*fs
-            nfi = i + twindow*fs
+        if Bool(cond[i])
+            nin = i - twindow
+            nfi = i + twindow
 
             if nin <= 0
                 nin = 1
@@ -198,9 +201,13 @@ function _removeoutliers(data::Array{Union{Float64, Missing},1}, fs::Int64, twin
                 nfi = ndat
             end
 
-            z[nin:nfi] = missing
+            z[nin:nfi] .= missing
         end
     end
 
-    return mean(skipmissing(z))
+    if return_mean
+        return mean(skipmissing(z))
+    else
+        return z
+    end
 end

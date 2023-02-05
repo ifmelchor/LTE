@@ -5,6 +5,8 @@
 
 # Ivan Melchor
 
+using Multitaper
+
 """
     _psd(args)
 
@@ -17,7 +19,7 @@ function _psd(data::Array{Float64,1}, fs::Int64, lwin::Union{Int64,Nothing}, nwi
     K    = convert(Int64, 2*NW - 1)
     frmin, frmax = fqr
 
-    if !isnothing(nwin) & !isnothing(lwin)
+    if !isnothing(nwin) && !isnothing(lwin)
 
         if isnothing(nadv)
             nadv = 0
@@ -77,10 +79,10 @@ function _csm(data::Array{Float64,2}, fs::Int64, lwin::Union{Int64,Nothing}, nwi
     frmin, frmax = fqr
     
     # build half part of covm matrix
-    if !isnothing(nwin) & !isnothing(lwin)
+    if !isnothing(nwin) && !isnothing(lwin)
 
         if isnothing(nadv)
-            nadv = 0
+            nadv = 0.0
         end
         
         for n in 1:nwin

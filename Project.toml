@@ -4,10 +4,9 @@ authors = ["Ivan Melchor <ifmelchor@unrn.edu.ar> and contributors"]
 version = "0.1.0"
 
 [deps]
-ChaosTools = "608a59af-f2a3-5ad4-90b4-758bdf3122a7"
 ComplexValues = "41a84b80-6cf2-11e9-379d-9df124847946"
 DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
-DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Entropies = "ed8fcbec-b94c-44b6-89df-898894ad9591"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Multitaper = "a81958ac-9ec9-4086-814d-3ae87249a5e8"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
