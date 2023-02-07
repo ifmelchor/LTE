@@ -9,7 +9,7 @@
 
 Funcion LTE-station para calculcar espectrograma, polargrama, etc...
 """
-function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,1}, Nothing}, channels::Vector{String}, fs::Int64, nwin::Int64, lwin::Int64, nswin::Union{Int64,Nothing}, lswin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fq_band::Vector{Float64}, NW::Float64, pad::Float64, add_param::Bool, polar::Bool, pe_order::Int64, pe_delta::Int64, ap_twin::Float64, ap_th::Float64)
+function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,2}, Nothing}, channels::Vector{String}, fs::Int64, nwin::Int64, lwin::Int64, nswin::Union{Int64,Nothing}, lswin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fq_band::Vector{Float64}, NW::Float64, pad::Float64, add_param::Bool, polar::Bool, pe_order::Int64, pe_delta::Int64, ap_twin::Float64, ap_th::Float64)
 
     # channel info for polarization analysis:
     #  1 --> Z
@@ -86,7 +86,7 @@ function _starun(base::LTEBase)
         sdata_n = @view base.seis_data[:, n0:nf]
 
         if !isnothing(base.disp_data)
-            ddata_n = @view base.disp_data[n0:nf]
+            ddata_n = base.disp_data[1,n0:nf]
         else
             ddata_n = nothing
         end
@@ -102,12 +102,13 @@ function _starun(base::LTEBase)
                 dict["opt"]["mf"][n]   = copt.mf
                 dict["opt"]["rmar"][n] = copt.rmar
                 dict["opt"]["hf"][n]   = copt.hf
+
                 if !isnothing(base.disp_data)
                     dict["opt"]["dsar"][n] = copt.dsar
                 end
                 
             else
-                cspe, perm_entr, copt = _core(sdata_n[c, :], nothing, base, false)
+                cspe, perm_entr, _ = _core(sdata_n[c, :], nothing, base, false)
             end
 
             dict[chan]["specgram"][n,:]  = cspe.S
