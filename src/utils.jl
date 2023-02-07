@@ -72,14 +72,14 @@ end
 
 Compute DSAR measure from displacement data
 """
-function _dsar(data::Array{Float64,1}, fs::Int64; mf_band=(4.,8.), hf_band=(8.,16.), twindow::Float64=2, threshold::Float64=5.)
+function _dsar(data::Array{Float64,1}, fs::Int64; mf_band=(4.,8.), hf_band=(8.,16.), twindow::Float64=150., threshold::Float64=5.)
 
     mfdata = abs.(_filt(data, mf_band, fs))
     hfdata = abs.(_filt(data, hf_band, fs))
     dsar = mfdata./hfdata
 
     # remove outlier
-    dsar_f = _removeoutliers(dsar, convert(Int64, twindow*fs), threshold)
+    dsar_f = _removeoutliers(dsar, convert(Int64, 15*fs), convert(Int64, twindow*fs), threshold)
 
     return dsar_f
 end
@@ -90,9 +90,9 @@ end
 
 Compute additional LTE parameters from seismic data
 """
-function _optparams(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1},Nothing}, fs::Int64; twindow::Float64=2., threshold::Float64=5.)
+function _optparams(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1},Nothing}, fs::Int64; twindow::Float64=150., threshold::Float64=5.)
 
-    remove_outlier = x -> _removeoutliers(x, convert(Int64, twindow*fs), threshold)
+    remove_outlier = x -> _removeoutliers(x, convert(Int64, 15*fs), convert(Int64, twindow*fs), threshold)
 
     vlf  = abs.(_filt(s_data, (.01,.1), fs))
     lf   = abs.(_filt(s_data, (.1,2.), fs))
@@ -182,32 +182,35 @@ end
 Search for spikes and replace by nan
     compute mean
 """
-function _removeoutliers(data::Array{Float64,1}, twindow::Int64, threshold::Float64, return_mean::Bool=true)
+function _removeoutliers(data::Array{Float64,1}, twindow_in::Int64, twindow::Int64, threshold::Float64; return_mean::Bool=true)
 
     ndat = size(data)[1]
+    x = convert(Array{Union{Missing,Float64}}, data)
     z = convert(Array{Union{Missing,Float64}}, _standarize(data))
     cond = z .> threshold
 
     for i in eachindex(cond)
         if Bool(cond[i])
-            nin = i - twindow
-            nfi = i + twindow
+            nin = i - twindow_in
+            nfi = nin + twindow
 
-            if nin <= 0
+            if nin < 1
                 nin = 1
             end
 
-            if nfi >= ndat
+            if nfi > ndat
                 nfi = ndat
             end
 
-            z[nin:nfi] .= missing
+            x[nin:nfi] .= missing
         end
     end
 
     if return_mean
-        return mean(skipmissing(z))
+        return mean(skipmissing(x))
     else
-        return z
+        return x
     end
 end
+
+

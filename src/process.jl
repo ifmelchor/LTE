@@ -81,8 +81,8 @@ function _starun(base::LTEBase)
     dict = _empty_dict(base) # define an empty dictionary
 
     for n in 1:base.nwin
-        n0 = 1 + floor(Int, base.lwin*(n-1))
-        nf = floor(Int, n0 + base.lwin)
+        n0 = 1 + floor(Int64, base.lwin*(n-1))
+        nf = floor(Int64, n0 + base.lwin)
         sdata_n = @view base.seis_data[:, n0:nf]
 
         if !isnothing(base.disp_data)
