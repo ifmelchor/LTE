@@ -5,14 +5,12 @@
 
 # Ivan Melchor
 
-using Multitaper
-
 """
     _psd(args)
 
 Compute the psd using multitaper approach
 """
-function _psd(data::Array{Float64,1}, fs::Int64, lwin::Union{Int64,Nothing}, nwin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fqr::Tuple{Int64,Int64}, nfs::Int64, NW::Float64, pad::Float64)
+function _psd(data::Array{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, nfs::J, NW::T, pad::T) where {T<:Real, J<:Int}
 
     npts = size(data)
     psd  = zeros(Float64, nfs)
@@ -53,7 +51,7 @@ end
 
 Compute the cross spectral correlation of two signals
 """
-function _crosscorr(data_i::Array{Float64,1}, data_j::Array{Float64,1}, fs::Int64; NW=3.5, pad=1.0)
+function _crosscorr(data_i::Array{T}, data_j::Array{T}, fs::J, NW::T, pad::T) where {T<:Real, J<:Int}
     
     K   = convert(Int64, 2*NW - 1)
     sij = multispec(data_i, data_j, outp=:spec, dt=1/fs, NW=NW, K=K, ctr=true, pad=pad, guts=true)
@@ -70,7 +68,7 @@ end
 Compute the SVD of the average moving Hermitian covariance matrix of data.
 This is useful for ambient noise and polarization analysis
 """
-function _csm(data::Array{Float64,2}, fs::Int64, lwin::Union{Int64,Nothing}, nwin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fqr::Tuple{Int64,Int64}, nfs::Int64, NW::Float64, pad::Float64)
+function _csm(data::Array{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, nfs::J, NW::T, pad::T) where {T<:Real, J<:Int}
 
     # define npts and nro of components 
     # (for polarization analysis ncomp is 3)
@@ -90,7 +88,7 @@ function _csm(data::Array{Float64,2}, fs::Int64, lwin::Union{Int64,Nothing}, nwi
             nf  = floor(Int, n0 + lwin)
             for i in 1:ncomp
                 for j in i:ncomp
-                    covm[i,j,:] .+= _crosscorr(data[i,n0:nf], data[j,n0:nf], fs, NW=NW, pad=pad)[frmin:frmax, 1]
+                    covm[i,j,:] .+= _crosscorr(data[i,n0:nf], data[j,n0:nf], fs, NW, pad)[frmin:frmax, 1]
                 end
             end
         end
@@ -99,7 +97,7 @@ function _csm(data::Array{Float64,2}, fs::Int64, lwin::Union{Int64,Nothing}, nwi
     else
         for i in 1:ncomp
             for j in i:ncomp
-                covm[i,j,:] = _crosscorr(data[i,:], data[j,:], fs, NW=NW, pad=pad)[frmin:frmax,1]
+                covm[i,j,:] = _crosscorr(data[i,:], data[j,:], fs, NW, pad)[frmin:frmax,1]
             end
         end
     end

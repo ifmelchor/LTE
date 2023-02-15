@@ -11,6 +11,7 @@ __precompile__()
 module LTE
 
     using LinearAlgebra
+    using Multitaper
     
     export lte_run
 

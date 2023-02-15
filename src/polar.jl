@@ -13,7 +13,7 @@ using ComplexValues
 Perform polarization analysis in the frequency domain.
 For increasing the confidence in the measure use lwin, nadv, and nwin and twoside (optional) that applies a moving-window approach
 """
-function _polar(data::Array{Float64,2}, base::LTEBase)
+function _polar(data::Array{T,2}, base::LTEBase) where T<:Real
 
     # compute de the SVD of the spectral covariance matrix of ZNE data
     csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
@@ -36,7 +36,7 @@ function _polar(data::Array{Float64,2}, base::LTEBase)
 end
 
 
-function _rotate_vector(z::Array{ComplexF64})
+function _rotate_vector(z::Array{C}) where C<:Complex
     
     zrot_(a) = [zk * (cos(a) + sin(a)im) for zk in z]
     alla = range(0, 2*pi, 100)
@@ -48,7 +48,7 @@ function _rotate_vector(z::Array{ComplexF64})
 end
 
 
-function _rectiliniarity(z::Array{ComplexF64})
+function _rectiliniarity(z::Array{C}) where C<:Complex
     
     # z = _rotate_vector(z)
     a = norm([x.re for x in z])
@@ -59,7 +59,7 @@ function _rectiliniarity(z::Array{ComplexF64})
 end
 
 
-function _elevation(z::Array{ComplexF64})
+function _elevation(z::Array{C}) where C<:Complex
     # compute elevation (0 for vertical, 90 for horizontal)
     zVpol = Polar(z[1])
     zH = sqrt(z[2]^2 + z[3]^2)
@@ -81,7 +81,7 @@ function _elevation(z::Array{ComplexF64})
 end
 
 
-function _angles(z::Array{ComplexF64})
+function _angles(z::Array{C}) where C<:Complex
     # transform complex vectors
     zVpol = Polar(z[1])
     zNpol = Polar(z[2])
@@ -94,8 +94,8 @@ function _angles(z::Array{ComplexF64})
     th_H = th(findmax(map(func, [th(l) for l in 0:5]))[2]-1)
 
     # rotate zH and compute tH
-    zN_rot = z[2] * exp(-th_H*1im)
-    zE_rot = z[3] * exp(-th_H*1im)
+    zN_rot = z[2] * cis(-th_H) #exp(-th_H*1im)
+    zE_rot = z[3] * cis(-th_H) #exp(-th_H*1im)
     tH = atan(zE_rot.re/zN_rot.re)
 
     arg = z[1]*conj(z[3])

@@ -6,7 +6,6 @@
 # Ivan Melchor
 
 using Entropies
-using Multitaper
 using Statistics
 using DSP
 
@@ -16,7 +15,7 @@ using DSP
 
 Return freq time series
 """
-function _fqbds(ndata::Int64, fs::Int64, fq_band::Vector{Float64}; pad=1.0)
+function _fqbds(ndata::J, fs::J, fq_band::Vector{T}; pad::T=1.0) where {T<:Real, J<:Int}
     
     _, fftleng, halffreq = Multitaper.output_len(range(1,ndata), pad)
     freq    = fs*range(0,1,length=fftleng+1)[1:halffreq]
@@ -36,7 +35,7 @@ end
 
 Perform permutation entropy
 """
-function _PE(data::Array{Float64,1}, ord::Int64, delta::Int64, fq_band::Vector{Float64}, fs::Int64)
+function _PE(data::AbstractArray{T}, ord::J, delta::J, fq_band::Vector{T}, fs::J) where {T<:Real, J<:Int}
 
     filt_data = _filt(data, (fq_band[1],fq_band[2]), fs)
     PE = Entropies.permentropy(data, τ=ord, m=delta, base=2)
@@ -51,7 +50,7 @@ end
 
 Filter data between fq_band
 """
-function _filt(data::Array{Float64,1}, fq_band::Tuple{Float64, Float64}, fs::Int64; ctr=true, buttorder=4)
+function _filt(data::AbstractArray{T}, fq_band::Tuple{T, T}, fs::J; ctr::Bool=true, buttorder::J=4) where {T<:Real, J<:Int}
 
     # filter data (with zero phase distortion) of buterworth of order 4
 
@@ -72,10 +71,10 @@ end
 
 Compute DSAR measure from displacement data
 """
-function _dsar(data::Array{Float64,1}, fs::Int64; mf_band=(4.,8.), hf_band=(8.,16.), twindow::Float64=150., threshold::Float64=5.)
+function _dsar(data::AbstractArray{T}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Int}
 
-    mfdata = abs.(_filt(data, mf_band, fs))
-    hfdata = abs.(_filt(data, hf_band, fs))
+    mfdata = abs.(_filt(data, (4.,8.), fs))
+    hfdata = abs.(_filt(data, (8.,16.), fs))
     dsar = mfdata./hfdata
 
     # remove outlier
@@ -90,7 +89,7 @@ end
 
 Compute additional LTE parameters from seismic data
 """
-function _optparams(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1},Nothing}, fs::Int64; twindow::Float64=150., threshold::Float64=5.)
+function _optparams(s_data::AbstractArray{T}, d_data::Union{Array{T},Nothing}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Int}
 
     remove_outlier = x -> _removeoutliers(x, convert(Int64, 15*fs), convert(Int64, twindow*fs), threshold)
 
@@ -114,7 +113,7 @@ function _optparams(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1},Not
     hf_f   = fparams[8]
 
     if !isnothing(d_data)
-        dsar_f = _dsar(d_data, fs, twindow=twindow, threshold=threshold)
+        dsar_f = _dsar(d_data, fs, twindow, threshold)
     else
         dsar_f = nothing
     end
@@ -122,43 +121,43 @@ function _optparams(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1},Not
     return OptParams(vlf_f, lf_f, vlar_f, rsam_f, lrar_f, mf_f, rmar_f, hf_f, dsar_f)
 end
 
-function Base.:+(op1::OptParams, op2::OptParams)
-    vlf  = op1.vlf  + op2.vlf
-    lf   = op1.lf   + op2.lf
-    vlar = op1.vlar + op2.vlar
-    rsam = op1.rsam + op2.rsam
-    lrar = op1.lrar + op2.lrar
-    mf   = op1.mf   + op2.mf
-    rmar = op1.rmar + op2.rmar
-    hf   = op1.hf   + op2.hf
+# function Base.:+(op1::OptParams, op2::OptParams)
+#     vlf  = op1.vlf  + op2.vlf
+#     lf   = op1.lf   + op2.lf
+#     vlar = op1.vlar + op2.vlar
+#     rsam = op1.rsam + op2.rsam
+#     lrar = op1.lrar + op2.lrar
+#     mf   = op1.mf   + op2.mf
+#     rmar = op1.rmar + op2.rmar
+#     hf   = op1.hf   + op2.hf
 
-    if !isnothing(op1.dsar) && !isnothing(op2.dsar)
-        dsar = op1.dsar + op2.dsar
-    else
-        dsar = nothing
-    end
+#     if !isnothing(op1.dsar) && !isnothing(op2.dsar)
+#         dsar = op1.dsar + op2.dsar
+#     else
+#         dsar = nothing
+#     end
 
-    return OptParams(vlf, lf, vlar, rsam, lrar, mf, rmar, hf, dsar)
-end
+#     return OptParams(vlf, lf, vlar, rsam, lrar, mf, rmar, hf, dsar)
+# end
 
-function Base.:/(op::OptParams, n::Int64)
-    vlf  = op.vlf  / n
-    lf   = op.lf   / n
-    vlar = op.vlar / n
-    rsam = op.rsam / n
-    lrar = op.lrar / n
-    mf   = op.mf   / n
-    rmar = op.rmar / n
-    hf   = op.hf   / n
+# function Base.:/(op::OptParams, n::Int64)
+#     vlf  = op.vlf  / n
+#     lf   = op.lf   / n
+#     vlar = op.vlar / n
+#     rsam = op.rsam / n
+#     lrar = op.lrar / n
+#     mf   = op.mf   / n
+#     rmar = op.rmar / n
+#     hf   = op.hf   / n
 
-    if !isnothing(op.dsar)
-        dsar = op.dsar / n
-    else
-        dsar = nothing
-    end
+#     if !isnothing(op.dsar)
+#         dsar = op.dsar / n
+#     else
+#         dsar = nothing
+#     end
 
-    return OptParams(vlf, lf, vlar, rsam, lrar, mf, rmar, hf, dsar)
-end
+#     return OptParams(vlf, lf, vlar, rsam, lrar, mf, rmar, hf, dsar)
+# end
 
 
 """
@@ -166,7 +165,7 @@ end
 
 Standarize a time series
 """
-function _standarize(data::Array{Float64,1})
+function _standarize(data::AbstractArray{T}) where T<:Real
 
     u = mean(data)
     s = std(data)
@@ -182,7 +181,7 @@ end
 Search for spikes and replace by nan
     compute mean
 """
-function _removeoutliers(data::Array{Float64,1}, twindow_in::Int64, twindow::Int64, threshold::Float64; return_mean::Bool=true)
+function _removeoutliers(data::AbstractArray{T}, twindow_in::J, twindow::J, threshold::T; return_mean::Bool=true) where {T<:Real, J<:Int}
 
     ndat = size(data)[1]
     x = convert(Array{Union{Missing,Float64}}, data)

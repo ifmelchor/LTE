@@ -9,7 +9,7 @@
 
 Funcion LTE-station para calculcar espectrograma, polargrama, etc...
 """
-function lte_run(s_data::Array{Float64,2}, d_data::Union{Array{Float64,2}, Nothing}, channels::Vector{String}, fs::Int64, nwin::Int64, lwin::Int64, nswin::Union{Int64,Nothing}, lswin::Union{Int64,Nothing}, nadv::Union{Float64,Nothing}, fq_band::Vector{Float64}, NW::Float64, pad::Float64, add_param::Bool, polar::Bool, pe_order::Int64, pe_delta::Int64, ap_twin::Float64, ap_th::Float64)
+function lte_run(s_data::Array{T,2}, d_data::Union{Array{T,2}, Nothing}, channels::Vector{String}, fs::J, nwin::J, lwin::J, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, fq_band::Vector{T}, NW::T, pad::T, add_param::Bool, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Int}
 
     # channel info for polarization analysis:
     #  1 --> Z
@@ -140,7 +140,7 @@ end
 
 Compute core parameters for LTE
 """
-function _core(s_data::Array{Float64,1}, d_data::Union{Array{Float64,1}, Nothing}, base::LTEBase, opt_params::Bool)
+function _core(s_data::Array{T}, d_data::Union{Array{T}, Nothing}, base::LTEBase, opt_params::Bool) where T<:Real
 
     # compute psd
     sxx, freq = _psd(s_data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
