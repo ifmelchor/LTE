@@ -18,7 +18,7 @@ Return freq time series
 function _fqbds(ndata::J, fs::J, fq_band::Vector{T}; pad::T=1.0) where {T<:Real, J<:Int}
     
     _, fftleng, halffreq = Multitaper.output_len(range(1,ndata), pad)
-    freq    = fs*range(0,1,length=fftleng+1)[1:halffreq]
+    freq    = Array{Float64}(fs*range(0,1,length=fftleng+1)[1:halffreq])
     freqmin = fq_band[1]
     freqmax = fq_band[2]
     fleft   = findfirst(x -> x >= freqmin, freq)
@@ -89,7 +89,7 @@ end
 
 Compute additional LTE parameters from seismic data
 """
-function _optparams(s_data::AbstractArray{T}, d_data::Union{Array{T},Nothing}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Int}
+function _optparams(s_data::AbstractArray{T}, d_data::Union{AbstractArray{T},Nothing}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Int}
 
     remove_outlier = x -> _removeoutliers(x, convert(Int64, 15*fs), convert(Int64, twindow*fs), threshold)
 

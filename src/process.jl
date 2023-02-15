@@ -9,7 +9,7 @@
 
 Funcion LTE-station para calculcar espectrograma, polargrama, etc...
 """
-function lte_run(s_data::Array{T,2}, d_data::Union{Array{T,2}, Nothing}, channels::Vector{String}, fs::J, nwin::J, lwin::J, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, fq_band::Vector{T}, NW::T, pad::T, add_param::Bool, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Int}
+function lte_run(s_data::Array{T,2}, d_data::Union{Array{T}, Nothing}, channels::Vector{String}, fs::J, nwin::J, lwin::J, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, fq_band::Vector{T}, NW::T, pad::T, add_param::Bool, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Int}
 
     # channel info for polarization analysis:
     #  1 --> Z
@@ -86,7 +86,7 @@ function _starun(base::LTEBase)
         sdata_n = @view base.seis_data[:, n0:nf]
 
         if !isnothing(base.disp_data)
-            ddata_n = base.disp_data[1,n0:nf]
+            ddata_n = @view base.disp_data[1,n0:nf]
         else
             ddata_n = nothing
         end
@@ -140,7 +140,7 @@ end
 
 Compute core parameters for LTE
 """
-function _core(s_data::Array{T}, d_data::Union{Array{T}, Nothing}, base::LTEBase, opt_params::Bool) where T<:Real
+function _core(s_data::AbstractArray{T}, d_data::Union{AbstractArray{T}, Nothing}, base::LTEBase, opt_params::Bool) where T<:Real
 
     # compute psd
     sxx, freq = _psd(s_data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
@@ -155,13 +155,13 @@ function _core(s_data::Array{T}, d_data::Union{Array{T}, Nothing}, base::LTEBase
     erg = sum(sxx)
 
     # crate spectral struct
-    spec_p = SParams(freq, sxx, erg, domfreq, cenfreq)
+    spec_p = SParams(sxx, erg, domfreq, cenfreq)
 
     # permutation entropy
     perm_entr = _PE(s_data, base.pe_order, base.pe_delta, base.fq_band, base.fs)
 
     if opt_params
-        opt_p = _optparams(s_data, d_data, base.fs, twindow=base.ap_twin, threshold=base.ap_th)
+        opt_p = _optparams(s_data, d_data, base.fs, base.ap_twin, base.ap_th)
     else
         opt_p = nothing
     end

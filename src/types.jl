@@ -46,7 +46,6 @@ end
 
 
 struct SParams{T<:Real}
-    freq      :: Array{T}                    # frequency series
     S         :: Array{T}                    # power spectrum density
     erg       :: T                           # energy
     dominant  :: T                           # dominant frequency

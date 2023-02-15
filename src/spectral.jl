@@ -10,7 +10,7 @@
 
 Compute the psd using multitaper approach
 """
-function _psd(data::Array{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, nfs::J, NW::T, pad::T) where {T<:Real, J<:Int}
+function _psd(data::AbstractArray{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, nfs::J, NW::T, pad::T) where {T<:Real, J<:Int}
 
     npts = size(data)
     psd  = zeros(Float64, nfs)
@@ -51,7 +51,7 @@ end
 
 Compute the cross spectral correlation of two signals
 """
-function _crosscorr(data_i::Array{T}, data_j::Array{T}, fs::J, NW::T, pad::T) where {T<:Real, J<:Int}
+function _crosscorr(data_i::AbstractArray{T}, data_j::AbstractArray{T}, fs::J, NW::T, pad::T) where {T<:Real, J<:Int}
     
     K   = convert(Int64, 2*NW - 1)
     sij = multispec(data_i, data_j, outp=:spec, dt=1/fs, NW=NW, K=K, ctr=true, pad=pad, guts=true)
@@ -68,7 +68,7 @@ end
 Compute the SVD of the average moving Hermitian covariance matrix of data.
 This is useful for ambient noise and polarization analysis
 """
-function _csm(data::Array{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, nfs::J, NW::T, pad::T) where {T<:Real, J<:Int}
+function _csm(data::AbstractArray{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, nfs::J, NW::T, pad::T) where {T<:Real, J<:Int}
 
     # define npts and nro of components 
     # (for polarization analysis ncomp is 3)

@@ -13,7 +13,7 @@ using ComplexValues
 Perform polarization analysis in the frequency domain.
 For increasing the confidence in the measure use lwin, nadv, and nwin and twoside (optional) that applies a moving-window approach
 """
-function _polar(data::Array{T,2}, base::LTEBase) where T<:Real
+function _polar(data::AbstractArray{T}, base::LTEBase) where T<:Real
 
     # compute de the SVD of the spectral covariance matrix of ZNE data
     csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
