@@ -13,7 +13,7 @@ using ComplexValues
 Perform polarization analysis in the frequency domain.
 For increasing the confidence in the measure use lwin, nadv, and nwin and twoside (optional) that applies a moving-window approach
 """
-function _polar(data::AbstractArray{T}, base::LTEBase) where T<:Real
+function _polar(data::AbstractArray{T}, base::Union{STABase, PolarBase}; full_return::Bool=true) where T<:Real
 
     # compute de the SVD of the spectral covariance matrix of ZNE data
     csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
@@ -21,18 +21,24 @@ function _polar(data::AbstractArray{T}, base::LTEBase) where T<:Real
     # compute polar degree
     degree = [(3*sum(s.S.^2)-sum(s.S)^2)/(2*sum(s.S)^2) for s in csm_svd]
     
-    # compute rectilinearity of Vt
-    z_rot = map(_rotate_vector, [s.Vt[1,:] for s in csm_svd])
-    rect  = map(_rectiliniarity, z_rot)
-    
-    # get angles
-    angles = map(_angles, z_rot)
-    azi = [a.azimuth for a in angles]
-    ele = [a.elev for a in angles]
-    pHH = [a.phyhh for a in angles]
-    pVH = [a.phyvh for a in angles]
+    if full_return
+        # compute rectilinearity of Vt
+        z_rot = map(_rotate_vector, [s.Vt[1,:] for s in csm_svd])
+        rect  = map(_rectiliniarity, z_rot)
+        
+        # get angles
+        angles = map(_angles, z_rot)
+        azi = [a.azimuth for a in angles]
+        ele = [a.elev for a in angles]
+        pHH = [a.phyhh for a in angles]
+        pVH = [a.phyvh for a in angles]
 
-    return PParams(degree, rect, azi, ele, pHH, pVH)
+        return PParams(degree, rect, azi, ele, pHH, pVH)
+    
+    else
+        return degree
+
+    end
 end
 
 

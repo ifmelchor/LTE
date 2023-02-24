@@ -13,7 +13,7 @@ module LTE
     using LinearAlgebra
     using Multitaper
     
-    export lte_run
+    export lte_run, polar_run
 
     include("types.jl")
 

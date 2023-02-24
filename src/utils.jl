@@ -6,8 +6,42 @@
 # Ivan Melchor
 
 using Entropies
+using NumericalIntegration
 using Statistics
 using DSP
+
+"""
+   _empty_lte(*args)
+
+Genera un dict vacio para llenar durante el procesado.
+"""
+function _empty_dict(channels::Vector{String}, add_param::Bool, polar::Bool, base::STABase)
+    dict = Dict()
+    
+    for chan in channels
+        dict[chan] = Dict()
+        dict[chan]["specgram"] = Array{Float64}(undef, base.nwin, base.nfs)
+        for attr in ("energy", "fq_dominant", "fq_centroid", "perm_entr")
+            dict[chan][attr] = Array{Float64}(undef, base.nwin)
+        end
+    end
+
+    if add_param
+        dict["opt"] = Dict()
+        for attr in ("vlf", "lf", "vlar", "rsam", "lrar", "mf", "rmar", "hf", "dsar")
+            dict["opt"][attr] = Array{Float64}(undef, base.nwin)
+        end
+    end
+
+    if length(channels)==3 && polar
+        dict["polar"] = Dict()
+        for attr in ("degree", "rect", "azimuth", "elev", "phyhh", "phyvh")
+            dict["polar"][attr] = Array{Float64}(undef, base.nwin, base.nfs)
+        end
+    end
+
+    return dict
+end
 
 
 """
@@ -38,10 +72,9 @@ Perform permutation entropy
 function _PE(data::AbstractArray{T}, ord::J, delta::J, fq_band::Vector{T}, fs::J) where {T<:Real, J<:Int}
 
     filt_data = _filt(data, (fq_band[1],fq_band[2]), fs)
-    PE = Entropies.permentropy(data, τ=ord, m=delta, base=2)
-    normalizedPE = PE / log2(factorial(ord))
+    PE = Entropies.permentropy(filt_data, τ=ord, m=delta, base=2)
 
-    return PE
+    return PE / log2(factorial(ord))
 end
 
 
@@ -69,17 +102,28 @@ end
 """
     _dsar(*args)
 
-Compute DSAR measure from displacement data
+Compute DSAR measure
 """
 function _dsar(data::AbstractArray{T}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Int}
 
+    # integrate seismic displacement
+    ndata = length(data)
+    data   = cumul_integrate(data, range(1, ndata))
+
+    # filter in 4-8 and 8-16 Hz
     mfdata = abs.(_filt(data, (4.,8.), fs))
     hfdata = abs.(_filt(data, (8.,16.), fs))
-    dsar = mfdata./hfdata
+
+    # do the ratio
+    dsar   = mfdata./hfdata
 
     # remove outlier
-    dsar_f = _removeoutliers(dsar, convert(Int64, 15*fs), convert(Int64, twindow*fs), threshold)
-
+    if threshold > 0
+        dsar_f = _removeoutliers(dsar, convert(Int64, 15*fs), convert(Int64, twindow*fs), threshold)
+    else
+        dsar_f = mean(dsar)
+    end
+        
     return dsar_f
 end
 
@@ -89,75 +133,45 @@ end
 
 Compute additional LTE parameters from seismic data
 """
-function _optparams(s_data::AbstractArray{T}, d_data::Union{AbstractArray{T},Nothing}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Int}
+function _optparams(data::AbstractArray{T}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Int}
 
     remove_outlier = x -> _removeoutliers(x, convert(Int64, 15*fs), convert(Int64, twindow*fs), threshold)
 
-    vlf  = abs.(_filt(s_data, (.01,.1), fs))
-    lf   = abs.(_filt(s_data, (.1,2.), fs))
+    vlf  = abs.(_filt(data, (.01,.1), fs))
+    lf   = abs.(_filt(data, (.1,2.), fs))
     vlar = vlf./lf
-    rsam = abs.(_filt(s_data, (2.,4.5), fs))
+    rsam = abs.(_filt(data, (2.,4.5), fs))
     lrar = lf./rsam
-    mf   = abs.(_filt(s_data, (4.,8.), fs))
+    mf   = abs.(_filt(data, (4.,8.), fs))
     rmar = rsam./mf
-    hf   = abs.(_filt(s_data, (8.,16.), fs))
-    
-    fparams = map(remove_outlier, [vlf, lf, vlar, rsam, lrar, mf, rmar, hf])
-    vlf_f  = fparams[1]
-    lf_f   = fparams[2]
-    vlar_f = fparams[3]
-    rsam_f = fparams[4]
-    lrar_f = fparams[5]
-    mf_f   = fparams[6]
-    rmar_f = fparams[7]
-    hf_f   = fparams[8]
+    hf   = abs.(_filt(data, (8.,16.), fs))
 
-    if !isnothing(d_data)
-        dsar_f = _dsar(d_data, fs, twindow, threshold)
+    if threshold > 0
+        fparams = map(remove_outlier, [vlf, lf, vlar, rsam, lrar, mf, rmar, hf])
+        vlf_f  = fparams[1]
+        lf_f   = fparams[2]
+        vlar_f = fparams[3]
+        rsam_f = fparams[4]
+        lrar_f = fparams[5]
+        mf_f   = fparams[6]
+        rmar_f = fparams[7]
+        hf_f   = fparams[8]
     else
-        dsar_f = nothing
+        vlf_f  = mean(vlf)
+        lf_f   = mean(lf)
+        vlar_f = mean(vlar)
+        rsam_f = mean(rsam)
+        lrar_f = mean(lrar)
+        mf_f   = mean(mf)
+        rmar_f = mean(rmar)
+        hf_f   = mean(hf)
     end
+    
+    dsar_f = _dsar(data, fs, twindow, threshold)
     
     return OptParams(vlf_f, lf_f, vlar_f, rsam_f, lrar_f, mf_f, rmar_f, hf_f, dsar_f)
 end
 
-# function Base.:+(op1::OptParams, op2::OptParams)
-#     vlf  = op1.vlf  + op2.vlf
-#     lf   = op1.lf   + op2.lf
-#     vlar = op1.vlar + op2.vlar
-#     rsam = op1.rsam + op2.rsam
-#     lrar = op1.lrar + op2.lrar
-#     mf   = op1.mf   + op2.mf
-#     rmar = op1.rmar + op2.rmar
-#     hf   = op1.hf   + op2.hf
-
-#     if !isnothing(op1.dsar) && !isnothing(op2.dsar)
-#         dsar = op1.dsar + op2.dsar
-#     else
-#         dsar = nothing
-#     end
-
-#     return OptParams(vlf, lf, vlar, rsam, lrar, mf, rmar, hf, dsar)
-# end
-
-# function Base.:/(op::OptParams, n::Int64)
-#     vlf  = op.vlf  / n
-#     lf   = op.lf   / n
-#     vlar = op.vlar / n
-#     rsam = op.rsam / n
-#     lrar = op.lrar / n
-#     mf   = op.mf   / n
-#     rmar = op.rmar / n
-#     hf   = op.hf   / n
-
-#     if !isnothing(op.dsar)
-#         dsar = op.dsar / n
-#     else
-#         dsar = nothing
-#     end
-
-#     return OptParams(vlf, lf, vlar, rsam, lrar, mf, rmar, hf, dsar)
-# end
 
 
 """
