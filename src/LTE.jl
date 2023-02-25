@@ -11,9 +11,10 @@ __precompile__()
 module LTE
 
     using LinearAlgebra
+    using ComplexValues
     using Multitaper
     
-    export lte_run, polar_run
+    export sta_run, net_run, polar_run
 
     include("types.jl")
 

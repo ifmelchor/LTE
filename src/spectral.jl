@@ -10,12 +10,14 @@
 
 Compute the psd using multitaper approach
 """
-function _psd(data::AbstractArray{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, nfs::J, NW::T, pad::T) where {T<:Real, J<:Int}
+function _psd(data::AbstractArray{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, NW::T, pad::T) where {T<:Real, J<:Int}
 
     npts = size(data)
+    frmin, frmax = fqr
+    nfs  = frmax-frmin+1
+    
     psd  = zeros(Float64, nfs)
     K    = convert(Int64, 2*NW - 1)
-    frmin, frmax = fqr
 
     if !isnothing(nwin) && !isnothing(lwin)
 
@@ -65,16 +67,17 @@ end
 """
     _csm(args)
 
-Compute the SVD of the average moving Hermitian covariance matrix of data.
-This is useful for ambient noise and polarization analysis
+Compute the SVD of the average moving Hermitian covariance spectral matrix (CSM) of data.
+This is useful for spectral width measurement and polarization analysis
 """
-function _csm(data::AbstractArray{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, nfs::J, NW::T, pad::T) where {T<:Real, J<:Int}
+function _csm(data::AbstractArray{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union{J,Nothing}, nadv::Union{T,Nothing}, fqr::Tuple{J,J}, NW::T, pad::T) where {T<:Real, J<:Int}
 
     # define npts and nro of components 
     # (for polarization analysis ncomp is 3)
     ncomp, npts = size(data)
-    covm = zeros(ComplexF64, ncomp, ncomp, nfs)
     frmin, frmax = fqr
+    nfs = frmax - frmin + 1
+    covm = zeros(ComplexF64, ncomp, ncomp, nfs)
     
     # build half part of covm matrix
     if !isnothing(nwin) && !isnothing(lwin)

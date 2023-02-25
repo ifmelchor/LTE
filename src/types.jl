@@ -2,34 +2,19 @@
 # coding=utf-8
 
 
-struct STABase{T<:Real, J<:Int}
+struct Base{T<:Real, J<:Int}
     fs        :: J                           # sampling rate
     fq_band   :: Vector{T}                   # frequency band
     fqminmax  :: Tuple{J, J}                 # position of fq band
-    nfs       :: J                           # npts of freq between fq band
-    nwin      :: J                           # number of windows to reduce
-    lwin      :: J                           # length of each window
     nswin     :: Union{J, Nothing}           # number of subwindows for moving average
     lswin     :: Union{J, Nothing}           # length of subwindow for moving average
     nadv      :: Union{T, Nothing}           # number of points to advance a subwindow for moving average
     NW        :: T                           # number of tapers
     pad       :: T                           # padding frequency domain
-    pe_order  :: J                           # permutation entropy order/dimension
-    pe_delta  :: J                           # permutation entropy tau
-    ap_twin   :: T                           # time window for aditional parameters
-    ap_th     :: T                           # threshold for aditional parameters
-end
-
-struct PolarBase{T<:Real, J<:Int}
-    fs        :: J                           # sampling rate
-    fq_band   :: Vector{T}                   # frequency band
-    fqminmax  :: Tuple{J, J}                 # position of fq band
-    nfs       :: J                           # npts of freq between fq band
-    nswin     :: Union{J, Nothing}           # number of subwindows for moving average
-    lswin     :: Union{J, Nothing}           # length of subwindow for moving average
-    nadv      :: Union{T, Nothing}           # number of points to advance a subwindow for moving average
-    NW        :: T                           # number of tapers
-    pad       :: T                           # padding frequency domain
+    pe_order  :: Union{J, Nothing}           # permutation entropy order/dimension
+    pe_delta  :: Union{J, Nothing}           # permutation entropy tau
+    ap_twin   :: Union{T, Nothing}           # time window for aditional parameters
+    ap_th     :: Union{T, Nothing}           # threshold for aditional parameters
 end
 
 

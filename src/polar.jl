@@ -5,18 +5,16 @@
 
 # Ivan Melchor
 
-using ComplexValues
-
 """
     _polar(*args)
 
 Perform polarization analysis in the frequency domain.
 For increasing the confidence in the measure use lwin, nadv, and nwin and twoside (optional) that applies a moving-window approach
 """
-function _polar(data::AbstractArray{T}, base::Union{STABase, PolarBase}; full_return::Bool=true) where T<:Real
+function _polar(data::AbstractArray{T}, base::Base; full_return::Bool=true) where T<:Real
 
     # compute de the SVD of the spectral covariance matrix of ZNE data
-    csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
+    csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
 
     # compute polar degree
     degree = [(3*sum(s.S.^2)-sum(s.S)^2)/(2*sum(s.S)^2) for s in csm_svd]

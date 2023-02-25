@@ -11,11 +11,6 @@ Funcion LTE-station para calculcar espectrograma, polargrama, etc...
 """
 function sta_run(data::Array{T,2}, channels::Vector{String}, fs::J, nwin::J, lwin::J, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, fq_band::Vector{T}, NW::T, pad::T, add_param::Bool, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Int}
 
-    # channel info for polarization analysis:
-    #  1 --> Z
-    #  2 --> N
-    #  3 --> E
-
     if size(channels, 1) != size(data, 1)
         throw(ArgumentError("nro of components and seismic-data-matrix raw's must be equal"))
     end
@@ -28,10 +23,11 @@ function sta_run(data::Array{T,2}, channels::Vector{String}, fs::J, nwin::J, lwi
     end
     
     # define base
-    base = STABase(fs, fq_band, fqminmax, size(freq, 1), nwin, lwin, nswin, lswin, nadv, NW, pad, pe_order, pe_delta, ap_twin, ap_th)
+    base = Base(fs, fq_band, fqminmax, nswin, lswin, nadv, NW, pad, pe_order, pe_delta, ap_twin, ap_th)
     
     # create empty dict
-    lte_dict = _empty_dict(channels, add_param, polar, base)
+    nfs = size(freq, 1)
+    lte_dict = _empty_dict(channels, add_param, polar, nwin, nfs)
 
     for n in 1:nwin
         n0 = 1 + floor(Int64, lwin*(n-1))
@@ -96,10 +92,40 @@ function polar_run(data::Array{T,2}, fq_band::Vector{T}, fs::J, NW::T, pad::T, n
         freq, fqminmax = _fqbds(lwin, fs, fq_band, pad=pad)
     end
 
-    nfs = size(freq, 1)
-    base = PolarBase(fs, fq_band, fqminmax, nfs, nswin, lswin, nadv, NW, pad)
+    pe_order = pe_delta = ap_twin = ap_th = nothing
+    base = Base(fs, fq_band, fqminmax, nswin, lswin, nadv, NW, pad, pe_order, pe_delta, ap_twin, ap_th)
 
     return freq, _polar(data, base, full_return=full_return)
+end
+
+
+"""
+   net_run(*args)
+
+Funcion LTE-network para calculcar espectrograma y CSW (covariance spectral width) sugerido por Seydeux
+"""
+function net_run(data::Array{T,2}, channels::Vector{String}, fs::J, nswin::J, lswin::J, nswin_nadv::T, fq_band::Vector{T}, NW::T, pad::T) where {T<:Real, J<:Int}
+
+    nsta = size(data, 1)
+
+    if size(channels, 1) != nsta
+        throw(ArgumentError("nro of components and seismic-data-matrix raw's must be equal"))
+    end
+
+    # compute the frequency domain
+    freq, fqminmax = _fqbds(lswin, fs, fq_band, pad=pad)
+    
+    pe_order = pe_delta = ap_twin = ap_th = nothing
+    base = Base(fs, fq_band, fqminmax, nswin, lswin, nadv, NW, pad, pe_order, pe_delta, ap_twin, ap_th)
+
+    # create empty dict
+    nfs = size(freq, 1)
+    lte_dict = _empty_dict(channels, nfs)
+
+    # compute parameters
+    _netcore(data, channels, base, lte_dict)
+
+    return lte_dict
 end
 
 
@@ -108,10 +134,10 @@ end
 
 Compute core parameters for LTE
 """
-function _stacore(data::AbstractArray{T}, base::STABase, opt_params::Bool) where T<:Real
+function _stacore(data::AbstractArray{T}, base::Base, opt_params::Bool) where T<:Real
 
     # compute psd
-    sxx, freq = _psd(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
+    sxx, freq = _psd(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
 
     # dominant freq
     domfreq = freq[findmax(sxx)[2]]
@@ -138,20 +164,33 @@ function _stacore(data::AbstractArray{T}, base::STABase, opt_params::Bool) where
 end
 
 
-
 """
     _netcore(args)
 
 Compute core parameters for LTE
 """
-function _netcore(data::AbstractArray{T}, base::STABase, opt_params::Bool) where T<:Real
+function _netcore(data::AbstractArray{T}, channels::Vector{String}, base::Base, lte_dict::Dict) where T<:Real
 
-    # compute psd
-    sxx, _ = _psd(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.nfs, base.NW, base.pad)
-            
-    # energy
-    erg = sum(sxx)
+    # save specgram
+    for (c, chan) in enumerate(channels)
+        sxx, _ = _psd(data[c,:], base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
+        lte_dict[chan] = sxx
+    end
+
+    # compute CSM
+    csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
     
+    # compute spectral width and save Vt
+    nsta = size(channels,1)
+    idx = 0:nsta-1
+    for i in eachindex(csm_svd)
+        s   = csm_svd[i]
 
-    return spec_p, perm_entr, opt_p
+        # spectral width
+        lte_dict["csw"][i] = dot(idx, s.S)/sum(s.S)
+
+        # save Vt
+        lte_dict["vt"][:,:,i] = s.Vt 
+    end
+
 end
