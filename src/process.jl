@@ -27,45 +27,45 @@ function sta_run(data::Array{T,2}, channels::Vector{String}, fs::J, nwin::J, lwi
     
     # create empty dict
     nfs = size(freq, 1)
-    lte_dict = _empty_dict(channels, add_param, polar, nwin, nfs)
+    lte_dict = _empty_dict(channels, add_param, polar, nfs, nwin)
 
     for n in 1:nwin
         n0 = 1 + floor(Int64, lwin*(n-1))
         nf = floor(Int64, n0 + lwin)
         data_n = @view data[:, n0:nf]
-        
+
         for (c, chan) in enumerate(channels)
             if add_param && c==1
                 cspe, perm_entr, copt = _stacore(data_n[c, :], base, true)
-                dict["opt"]["vlf"][n]  = copt.vlf
-                dict["opt"]["lf"][n]   = copt.lf
-                dict["opt"]["vlar"][n] = copt.vlar
-                dict["opt"]["rsam"][n] = copt.rsam
-                dict["opt"]["lrar"][n] = copt.lrar
-                dict["opt"]["mf"][n]   = copt.mf
-                dict["opt"]["rmar"][n] = copt.rmar
-                dict["opt"]["hf"][n]   = copt.hf
-                dict["opt"]["dsar"][n] = copt.dsar
+                lte_dict["opt"]["vlf"][n]  = copt.vlf
+                lte_dict["opt"]["lf"][n]   = copt.lf
+                lte_dict["opt"]["vlar"][n] = copt.vlar
+                lte_dict["opt"]["rsam"][n] = copt.rsam
+                lte_dict["opt"]["lrar"][n] = copt.lrar
+                lte_dict["opt"]["mf"][n]   = copt.mf
+                lte_dict["opt"]["rmar"][n] = copt.rmar
+                lte_dict["opt"]["hf"][n]   = copt.hf
+                lte_dict["opt"]["dsar"][n] = copt.dsar
             else
                 cspe, perm_entr, _ = _stacore(data_n[c, :], base, false)
             end
 
-            dict[chan]["specgram"][n,:]  = cspe.S
-            dict[chan]["energy"][n]      = cspe.erg
-            dict[chan]["fq_dominant"][n] = cspe.dominant
-            dict[chan]["fq_centroid"][n] = cspe.centroid
-            dict[chan]["perm_entr"][n]   = perm_entr
+            lte_dict[chan]["specgram"][n,:]  = cspe.S
+            lte_dict[chan]["energy"][n]      = cspe.erg
+            lte_dict[chan]["fq_dominant"][n] = cspe.dominant
+            lte_dict[chan]["fq_centroid"][n] = cspe.centroid
+            lte_dict[chan]["perm_entr"][n]   = perm_entr
         end
         
         # only when three components are available
         if  polar
             polarP = _polar(data_n[:,:], base)
-            dict["polar"]["degree"][n,:]  = polarP.degree
-            dict["polar"]["rect"][n,:]    = polarP.rect
-            dict["polar"]["azimuth"][n,:] = polarP.azimuth
-            dict["polar"]["elev"][n,:]    = polarP.elev
-            dict["polar"]["phyhh"][n,:]   = polarP.phyhh
-            dict["polar"]["phyvh"][n,:]   = polarP.phyvh
+            lte_dict["polar"]["degree"][n,:]  = polarP.degree
+            lte_dict["polar"]["rect"][n,:]    = polarP.rect
+            lte_dict["polar"]["azimuth"][n,:] = polarP.azimuth
+            lte_dict["polar"]["elev"][n,:]    = polarP.elev
+            lte_dict["polar"]["phyhh"][n,:]   = polarP.phyhh
+            lte_dict["polar"]["phyvh"][n,:]   = polarP.phyvh
         end
     
     end
