@@ -13,14 +13,17 @@ module LTE
     using LinearAlgebra
     using ComplexValues
     using Multitaper
+    using Statistics
     
     export sta_run, net_run, polar_run
 
     include("types.jl")
 
+    include("dicts.jl")
+
     include("utils.jl")
 
-    include("preprocess.jl")
+    include("more_params.jl")
 
     include("spectral.jl")
 

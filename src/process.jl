@@ -110,7 +110,7 @@ end
 
 Funcion LTE-network para calculcar espectrograma y CSW (covariance spectral width) sugerido por Seydeux
 """
-function net_run(data::Array{T,2}, channels::String, fs::J, nswin::J, lswin::J, nswin_nadv::T, fq_band::Tuple{T,T}, NW::T, pad::T) where {T<:Real, J<:Int}
+function net_run(data::Array{T,2}, channels::String, fs::J, nswin::J, lswin::J, nswin_nadv::T, fq_band::Tuple{T,T}, NW::T, pad::T, normalization::String) where {T<:Real, J<:Int}
 
     channels =[String(ch) for ch in split(channels, "/")]
     fq_band  = collect(fq_band)
@@ -132,7 +132,7 @@ function net_run(data::Array{T,2}, channels::String, fs::J, nswin::J, lswin::J, 
     lte_dict = _empty_dict(channels, nfs)
 
     # compute parameters
-    _netcore(data, channels, base, lte_dict)
+    _netcore(data, normalization, channels, base, lte_dict)
 
     return lte_dict
 end
