@@ -20,6 +20,8 @@ module LTE
 
     include("utils.jl")
 
+    include("preprocess.jl")
+
     include("spectral.jl")
 
     include("polar.jl")
