@@ -5,17 +5,18 @@
 
 # Ivan Melchor
 
-__precompile__()
+# __precompile__()
 
 
 module LTE
 
     using LinearAlgebra
     using ComplexValues
-    using Multitaper
     using Statistics
+    using FFTW
+    using Multitaper
     
-    export sta_run, net_run, polar_run
+    export sta_run, net_run, polar_run, extract
 
     include("types.jl")
 
@@ -28,6 +29,8 @@ module LTE
     include("spectral.jl")
 
     include("polar.jl")
+
+    include("peaks.jl")
 
     include("process.jl")
 

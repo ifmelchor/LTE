@@ -1,11 +1,9 @@
 #!/usr/local/bin julia
 # coding=utf-8
 
-# Utility functions for .jl
+# Utility functions for SAP.jl
 
 # Ivan Melchor
-
-using DSP, FFTW
 
 
 """
@@ -29,60 +27,64 @@ end
 
 
 """
-    _filt(*args)
-
-Filter data between fq_band
+  fb2(*args)
+    
+    Filter buterworth second order desgin
 """
-function _filt(data::AbstractArray{T}, fq_band::Tuple{T, T}, fs::J; ctr::Bool=true, buttorder::J=4) where {T<:Real, J<:Int}
+function _fb2(x::Array{T}, fc::T, fs::J, lowpass::Bool; amort=0.47) where {T<:Real, J<:Real}
 
-    # filter data (with zero phase distortion) of buterworth of order 4
+  a = tan(pi*fc/fs)
+  b = 2*a*a - 2
+  c = 1 - 2*amort*a + a*a
+  d = 1 + 2*amort*a + a*a
 
-    if ctr
-        data .-= mean(data)
-    end
+  if lowpass
+    a0 = a*a/d
+    a1 = 2*a0
+  else
+    a0 = 1/d
+    a1 = -2*a0
+  end
+  
+  a2 = a0
+  b1 = -b/d
+  b2 = -c/d   
+  
+  ndata = size(x, 1)
+  y = Array{T}(undef, ndata)
+  y[1] = x[1]
+  y[2] = x[2]
 
-    responsetype = Bandpass(fq_band[1], fq_band[2], fs=fs)
-    designmethod = Butterworth(buttorder)
-    datafilt = filtfilt(digitalfilter(responsetype, designmethod), data)
+  for j in 3:ndata
+    y[j] = a0*x[j] + a1*x[j-1] + a2*x[j-2] + b1*y[j-1] + b2*y[j-2]
+  end
 
-    return datafilt
+  return y
 end
 
 
-"""
-    _spec_white(*args)
+function _filter(data::Array{T}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
+    U = deepcopy(data)
+    _filter!(U, fs, fq_band)
 
-Spectral withening as Benson et al. 2007
-"""
-function _spec_white(A::AbstractArray{T}, fs::J, win_freq::T, fq_band::Tuple{T,T}) where {T<:Real, J<:Integer}
+    return U
+end
 
-    npts = size(A,1)
-    R = rfft(A)
 
-    rnpts = size(R,1)
-    R_w = Array{T}(undef, rnpts)
+function _filter!(data::Array{T}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
+  fl, fh = fq_band
 
-    deltaf = fs / npts  # frequency step
+  nsta = size(data,1)
 
-    # smoothing amplitude spectrum
-    halfwindow = convert(Int64, round(win_freq / deltaf / 2.0))
-
-    z = zeros(T, halfwindow)
-    Apadded =  vcat(z, abs.(R), z)
-    
-    # total size of the averaging window
-    npt = 2 * halfwindow + 1
-
-    # do moving average
-    for i in 1:npts
-        ak = a_padded[i:i+npt] 
-        w = sum(ak)/sum(ak>0)
-        R_w[i] = R / w
-    end
-
-    A_w = irfft(R_w, npts)
-
-    return _filt(A_w, fq_band, fs)
+  for i in 1:nsta
+    temp = _fb2(data[i,:], fh, fs, true)
+    data[i,:] = _fb2(temp, fl, fs, false)
+    temp = reverse(data[i,:])
+    data[i,:] = _fb2(temp, fh, fs, true)
+    temp = _fb2(data[i,:], fl, fs, false)
+    data[i,:] = reverse(temp)
+  
+  end
 end
 
 
@@ -99,6 +101,19 @@ function _standarize(data::AbstractArray{T}) where T<:Real
 
     return z
 end
+
+
+"""
+    _scaler(*args)
+
+MinMax scaler of a time series
+"""
+function _scaler(x::AbstractArray{T}; smin=0., smax=1.) where T<:Real
+    x_std = (x .- minimum(x)) ./ (maximum(x) - minimum(x)) 
+    x_scaled = x_std .* (smax - smin) .+ smin
+    return x_scaled
+end
+
 
 
 """
@@ -139,3 +154,62 @@ function _removeoutliers(data::AbstractArray{T}, twindow_in::J, twindow::J, thre
 end
 
 
+"""
+    _moving_avg(*args)
+
+normalization moving average as Benson et al. 2007
+"""
+function _moving_avg!(data::AbstractArray{T}, halfwindow::J) where {T<:Real, J<:Int}
+
+    # pad data
+    npts  = size(data, 1)
+    z = zeros(T, halfwindow)
+    data_pad = vcat(z, abs.(data), z)
+
+    # get total size of the averaging window
+    npt = 2 * halfwindow
+
+    # do moving average
+    for i in 1:npts
+        ak = @view data_pad[i:i+npt] 
+        w = sum(ak)/sum(ak.>0)
+        data[i] /= w
+    end
+
+    return nothing
+end
+
+
+"""
+    _circular_avg(*args)
+
+circular mean
+"""
+function _circmean(data::Array{T}; high=2*pi, low=0.) where T<:Real
+
+    sin_data = sin.(data)
+    cos_data = cos.(data)
+    res = atan(sum(sin_data), sum(cos_data))
+
+    return res*(high-low)/2.0/pi + low
+end
+
+
+"""
+    _circular_std(*args)
+
+circular standar deviation
+"""
+function _circstd(data::Array{T}; high=2*pi, low=0., normalize=false) where T<:Real
+
+    sin_data = mean(sin.(data))
+    cos_data = mean(cos.(data))
+    R = minimum([1, hypot(sin_data, cos_data)])
+    res = sqrt(-2*log(R))
+
+    if !normalize
+        res *= (high-low)/(2*pi)
+    end
+
+    return res
+end

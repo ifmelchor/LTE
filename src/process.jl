@@ -178,13 +178,18 @@ end
 
 Compute core parameters for LTE
 """
-function _netcore(data::AbstractArray{T}, channels::Vector{String}, base::Base, lte_dict::Dict) where T<:Real
+function _netcore(data::AbstractArray{T}, norm::String, channels::Vector{String}, base::Base, lte_dict::Dict) where T<:Real
 
     # save specgram
     for (c, chan) in enumerate(channels)
         sxx, _ = _psd(data[c,:], base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
         lte_dict[chan] = sxx
     end
+
+    # if norm == "classic"
+
+    # if norm == "spectral"
+        
 
     # compute CSM
     csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
