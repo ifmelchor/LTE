@@ -55,3 +55,16 @@ struct OptParams{T<:Real}
     hf    :: T
     dsar  :: Union{T, Nothing} 
 end
+
+
+struct PeakThresholds{T<:Real, J<:Int}
+    fq_dt     :: T
+    sxx_th    :: T
+    pdg_th    :: T
+    pdg_std   :: T
+    rect_th   :: T
+    rect_std  :: T
+    azim_std  :: T
+    elev_std  :: T
+    npts_min  :: J
+end

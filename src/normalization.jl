@@ -6,7 +6,6 @@
 
 # Ivan Melchor 2023
 
-using FFTW:rfft, irfft
 
 """
     _spec_white(*args)

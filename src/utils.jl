@@ -63,14 +63,6 @@ function _fb2(x::Array{T}, fc::T, fs::J, lowpass::Bool; amort=0.47) where {T<:Re
 end
 
 
-function _filter(data::Array{T}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
-    U = deepcopy(data)
-    _filter!(U, fs, fq_band)
-
-    return U
-end
-
-
 function _filter!(data::Array{T}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
   fl, fh = fq_band
 
@@ -87,6 +79,13 @@ function _filter!(data::Array{T}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:
   end
 end
 
+
+function _filter(data::Array{T}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
+    U = deepcopy(data)
+    _filter!(U, fs, fq_band)
+
+    return U
+end
 
 """
     _standarize(*args)
