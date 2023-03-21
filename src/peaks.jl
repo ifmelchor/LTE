@@ -70,10 +70,15 @@ function extract(spec::Array{T,3}, degree::Array{T}, rect::Array{T}, azimuth::Ar
                                 pk_rect_avg  = mean(rect_t_pk)
                                 pk_rect_std  = std(rect_t_pk, corrected=false, mean=pk_rect_avg)
 
+                                if pk_rect_std < pksth.rect_std
+                                    push!(pks_out[c][t]["rect"], pk_rect_avg)
+                                else
+                                    push!(pks_out[c][t]["rect"], NaN)
+                                end
+
                                 if pk_rect_avg > pksth.rect_th && pk_rect_std < pksth.rect_std
                                     # this peak is linearly polarized
                                     nro_Lpks[c] += 1
-                                    push!(pks_out[c][t]["rect"], pk_rect_avg)
 
                                     # get azimuth measures
                                     azim_t_pk = azimuth[t,fleft:fright]
@@ -110,7 +115,6 @@ function extract(spec::Array{T,3}, degree::Array{T}, rect::Array{T}, azimuth::Ar
                                     end
 
                                 else
-                                    push!(pks_out[c][t]["rect"], NaN)
                                     push!(pks_out[c][t]["azimuth"], NaN)
                                     push!(pks_out[c][t]["elev"], NaN)
                                 end

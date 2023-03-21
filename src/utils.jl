@@ -184,7 +184,7 @@ end
 
 circular mean
 """
-function _circmean(data::Array{T}; high=2*pi, low=0.) where T<:Real
+function _circmean(data::Array{T}; high=pi, low=0.) where T<:Real
 
     sin_data = sin.(data)
     cos_data = cos.(data)
@@ -199,7 +199,7 @@ end
 
 circular standar deviation
 """
-function _circstd(data::Array{T}; high=2*pi, low=0., normalize=false) where T<:Real
+function _circstd(data::Array{T}; high=pi, low=0., normalize=false) where T<:Real
 
     sin_data = mean(sin.(data))
     cos_data = mean(cos.(data))
