@@ -20,7 +20,7 @@ Perform permutation entropy
 """
 function _PE(data::AbstractArray{T}, ord::J, delta::J, fq_band::Vector{T}, fs::J) where {T<:Real, J<:Int}
 
-    filt_data = _filter(data, fq_band, fs)
+    filt_data = _filter(data, fs, fq_band)
     PE = Entropies.permentropy(filt_data, τ=ord, m=delta, base=2)
 
     return PE / log2(factorial(ord))
@@ -39,8 +39,8 @@ function _dsar(data::AbstractArray{T}, fs::J, twindow::T, threshold::T) where {T
     data   = cumul_integrate(data, range(1, ndata))
 
     # filter in 4-8 and 8-16 Hz
-    mfdata = abs.(_filter(data, [4.,8.], fs))
-    hfdata = abs.(_filter(data, [8.,16.], fs))
+    mfdata = abs.(_filter(data, fs, [4.,8.]))
+    hfdata = abs.(_filter(data, fs, [8.,16.]))
 
     # do the ratio
     dsar   = mfdata./hfdata
@@ -65,14 +65,14 @@ function _optparams(data::AbstractArray{T}, fs::J, twindow::T, threshold::T) whe
 
     remove_outlier = x -> _removeoutliers(x, convert(Int64, 15*fs), convert(Int64, twindow*fs), threshold)
 
-    vlf  = abs.(_filter(data, [.01,.1], fs))
-    lf   = abs.(_filter(data, [.1,2.], fs))
+    vlf  = abs.(_filter(data, fs, [.01,.1]))
+    lf   = abs.(_filter(data, fs, [.1,2.]))
     vlar = vlf./lf
-    rsam = abs.(_filter(data, [2.,4.5], fs))
+    rsam = abs.(_filter(data, fs, [2.,4.5]))
     lrar = lf./rsam
-    mf   = abs.(_filter(data, [4.,8.], fs))
+    mf   = abs.(_filter(data, fs, [4.,8.]))
     rmar = rsam./mf
-    hf   = abs.(_filter(data, [8.,16.], fs))
+    hf   = abs.(_filter(data, fs, [8.,16.]))
 
     if threshold > 0
         fparams = map(remove_outlier, [vlf, lf, vlar, rsam, lrar, mf, rmar, hf])
