@@ -63,7 +63,7 @@ function _fb2(x::Array{T}, fc::T, fs::J, lowpass::Bool; amort=0.47) where {T<:Re
 end
 
 
-function _filter!(data::Array{T}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
+function _filter!(data::Array{T,2}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
   fl, fh = fq_band
 
   nsta = size(data,1)
@@ -77,6 +77,18 @@ function _filter!(data::Array{T}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:
     data[i,:] = reverse(temp)
   
   end
+end
+
+function _filter!(data::Array{T,1}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
+    
+    fl, fh = fq_band
+    temp = _fb2(data, fh, fs, true)
+    data = _fb2(temp, fl, fs, false)
+    temp = reverse(data)
+    data = _fb2(temp, fh, fs, true)
+    temp = _fb2(data, fl, fs, false)
+    data = reverse(temp)
+  
 end
 
 
