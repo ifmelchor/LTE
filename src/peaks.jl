@@ -92,8 +92,8 @@ function extract(spec::Array{T,3}, degree::Array{T}, rect::Array{T}, azimuth::Ar
                                     elev_t_pk = elev_t_pk[rect_cond]
 
                                     if length(azim_t_pk) >= pksth.npts_min
-                                        pk_azim_avg = _circmean(pi/180 .* azim_t_pk) * 180/pi
-                                        pk_azim_std = _circstd(pi/180 .* azim_t_pk)
+                                        pk_azim_avg = _circmean(azim_t_pk)
+                                        pk_azim_std = _circstd(azim_t_pk)
                                         pk_elev_avg = mean(elev_t_pk)
                                         pk_elev_std = std(elev_t_pk, corrected=false, mean=pk_elev_avg)
                                         

@@ -198,11 +198,19 @@ circular mean
 """
 function _circmean(data::Array{T}; high=pi, low=0.) where T<:Real
 
-    sin_data = sin.(data)
-    cos_data = cos.(data)
+    data_to_rad = data .* pi/180
+    sin_data = sin.((data_to_rad .- low)*2*pi ./ (high - low))
+    cos_data = cos.((data_to_rad .- low)*2*pi ./ (high - low))
     res = atan(sum(sin_data), sum(cos_data))
+    res += 2*pi
+    circmean = res*(high-low)/2.0/pi + low
+    circmean *= 180/pi
 
-    return res*(high-low)/2.0/pi + low
+    if circmean > 180
+        circmean -= 180
+    end
+
+    return circmean
 end
 
 
@@ -213,8 +221,9 @@ circular standar deviation
 """
 function _circstd(data::Array{T}; high=pi, low=0., normalize=false) where T<:Real
 
-    sin_data = mean(sin.(data))
-    cos_data = mean(cos.(data))
+    data_to_rad = data .* pi/180
+    sin_data = mean( sin.((data_to_rad .- low)*2*pi ./ (high - low)) )
+    cos_data = mean( cos.((data_to_rad .- low)*2*pi ./ (high - low)) )
     R = minimum([1, hypot(sin_data, cos_data)])
     res = sqrt(-2*log(R))
 

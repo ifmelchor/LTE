@@ -8,8 +8,8 @@
 """
     _polar(*args)
 
-Perform polarization analysis in the frequency domain.
-For increasing the confidence in the measure use lwin, nadv, and nwin and twoside (optional) that applies a moving-window approach
+Functions for computing polarization analysis in the frequency domain
+
 """
 function _polar(data::AbstractArray{T}, base::Base; full_return::Bool=true) where T<:Real
 
@@ -120,7 +120,7 @@ function _angles(z::Array{C}) where C<:Complex
     end
 
     # compute phiHH, which is the phase difference between horizontals
-    pHH = (zEpol.ang - zNpol.ang)*180/pi
+    pHH = (zEpol.ang - zNpol.ang) * 180/pi
 
     if pHH > 180
         pHH -= 360
