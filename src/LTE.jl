@@ -5,7 +5,7 @@
 
 # Ivan Melchor
 
-# __precompile__()
+__precompile__()
 
 
 module LTE
