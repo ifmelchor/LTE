@@ -1,7 +1,7 @@
 #!/usr/local/bin julia
 # coding=utf-8
 
-# Ivan Melchor
+# Ivan Melchor (ifmelchor@unrn.edu.ar)
 
 
 """
@@ -34,8 +34,8 @@ function sta_run(data::Array{T,2}, channels::String, fs::J, nwin::J, lwin::J, ns
     lte_dict = _empty_dict(channels, add_param, polar, nfs, nwin)
 
     for n in 1:nwin
-        n0 = 1 + floor(Int64, lwin*(n-1))
-        nf = floor(Int64, n0 + lwin)
+        n0 = 1 + floor(Int32, lwin*(n-1))
+        nf = floor(Int32, n0 + lwin)
         data_n = @view data[:, n0:nf]
 
         for (c, chan) in enumerate(channels)
@@ -110,7 +110,7 @@ end
 
 Funcion LTE-network para calculcar espectrograma y CSW (covariance spectral width) sugerido por Seydeux
 """
-function net_run(data::Array{T,2}, channels::String, fs::J, nswin::J, lswin::J, nswin_nadv::T, fq_band::Tuple{T,T}, NW::T, pad::T, normalization::String) where {T<:Real, J<:Int}
+function net_run(data::Array{T,2}, channels::String, fs::J, nswin::J, lswin::J, nswin_nadv::T, fq_band::Tuple{T,T}, NW::T, pad::T) where {T<:Real, J<:Int}
 
     channels =[String(ch) for ch in split(channels, "/")]
     fq_band  = collect(fq_band)
@@ -132,7 +132,7 @@ function net_run(data::Array{T,2}, channels::String, fs::J, nswin::J, lswin::J, 
     lte_dict = _empty_dict(channels, nfs)
 
     # compute parameters
-    _netcore(data, normalization, channels, base, lte_dict)
+    _netcore(data, channels, base, lte_dict)
 
     return lte_dict
 end
@@ -178,7 +178,7 @@ end
 
 Compute core parameters for LTE
 """
-function _netcore(data::AbstractArray{T}, norm::String, channels::Vector{String}, base::Base, lte_dict::Dict) where T<:Real
+function _netcore(data::AbstractArray{T}, channels::Vector{String}, base::Base, lte_dict::Dict) where T<:Real
 
     # save specgram
     for (c, chan) in enumerate(channels)
@@ -186,10 +186,8 @@ function _netcore(data::AbstractArray{T}, norm::String, channels::Vector{String}
         lte_dict[chan] = sxx
     end
 
-    # if norm == "classic"
-
-    # if norm == "spectral"
-        
+    # preprocess
+    _spec_white!(data, base.fs, 0.33, base.fq_band)
 
     # compute CSM
     csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
@@ -199,12 +197,10 @@ function _netcore(data::AbstractArray{T}, norm::String, channels::Vector{String}
     idx = 0:nsta-1
     for i in eachindex(csm_svd)
         s   = csm_svd[i]
-
         # spectral width
         lte_dict["csw"][i] = dot(idx, s.S)/sum(s.S)
-
-        # save Vt
-        lte_dict["vt"][:,:,i] = s.Vt 
+        # first eigenvector
+        lte_dict["vt"][i,:] = s.Vt[1,:]
     end
 
 end

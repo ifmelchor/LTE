@@ -25,6 +25,8 @@ module LTE
 
     include("utils.jl")
 
+    include("normalization.jl")
+
     include("more_params.jl")
 
     include("spectral.jl")

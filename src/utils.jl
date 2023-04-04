@@ -14,7 +14,7 @@ Return freq time series
 function _fqbds(ndata::J, fs::J, fq_band::Vector{T}; pad::T=1.0) where {T<:Real, J<:Int}
     
     _, fftleng, halffreq = Multitaper.output_len(range(1,ndata), pad)
-    freq    = Array{Float64}(fs*range(0,1,length=fftleng+1)[1:halffreq])
+    freq    = Array{Float32}(fs*range(0,1,length=fftleng+1)[1:halffreq])
     freqmin = fq_band[1]
     freqmax = fq_band[2]
     fleft   = findfirst(x -> x >= freqmin, freq)
@@ -64,19 +64,12 @@ end
 
 
 function _filter!(data::Array{T,2}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
-  fl, fh = fq_band
 
   nsta = size(data,1)
-
   for i in 1:nsta
-    temp = _fb2(data[i,:], fh, fs, true)
-    data[i,:] = _fb2(temp, fl, fs, false)
-    temp = reverse(data[i,:])
-    data[i,:] = _fb2(temp, fh, fs, true)
-    temp = _fb2(data[i,:], fl, fs, false)
-    data[i,:] = reverse(temp)
-  
+    _filter!(data[i,:], fs, fq_band)
   end
+
 end
 
 function _filter!(data::Array{T,1}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
@@ -136,8 +129,8 @@ Search for spikes and replace by nan
 function _removeoutliers(data::AbstractArray{T}, twindow_in::J, twindow::J, threshold::T; return_mean::Bool=true) where {T<:Real, J<:Int}
 
     ndat = size(data)[1]
-    x = convert(Array{Union{Missing,Float64}}, data)
-    z = convert(Array{Union{Missing,Float64}}, _standarize(data))
+    x = convert(Array{Union{Missing,Float32}}, data)
+    z = convert(Array{Union{Missing,Float32}}, _standarize(data))
     cond = z .> threshold
 
     for i in eachindex(cond)
@@ -170,11 +163,11 @@ end
 
 normalization moving average as Benson et al. 2007
 """
-function _moving_avg!(data::AbstractArray{T}, halfwindow::J) where {T<:Real, J<:Int}
+function _moving_avg!(data::AbstractArray{T}, halfwindow::J) where {T<:Any, J<:Int}
 
     # pad data
     npts  = size(data, 1)
-    z = zeros(T, halfwindow)
+    z = zeros(Float32, halfwindow)
     data_pad = vcat(z, abs.(data), z)
 
     # get total size of the averaging window
@@ -182,12 +175,11 @@ function _moving_avg!(data::AbstractArray{T}, halfwindow::J) where {T<:Real, J<:
 
     # do moving average
     for i in 1:npts
-        ak = @view data_pad[i:i+npt] 
+        ak = data_pad[i:i+npt] 
         w = sum(ak)/sum(ak.>0)
         data[i] /= w
     end
 
-    return nothing
 end
 
 

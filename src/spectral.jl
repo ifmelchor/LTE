@@ -16,8 +16,8 @@ function _psd(data::AbstractArray{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union
     frmin, frmax = fqr
     nfs  = frmax-frmin+1
     
-    psd  = zeros(Float64, nfs)
-    K    = convert(Int64, 2*NW - 1)
+    psd  = zeros(Float32, nfs)
+    K    = convert(Int32, 2*NW - 1)
 
     if !isnothing(nwin) && !isnothing(lwin)
 
@@ -26,8 +26,8 @@ function _psd(data::AbstractArray{T}, fs::J, lwin::Union{J,Nothing}, nwin::Union
         end
         
         for n in 1:nwin
-            n0  = 1 + floor(Int, lwin * nadv*(n-1))
-            nf  = floor(Int, n0 + lwin)
+            n0  = 1 + floor(Int32, lwin * nadv*(n-1))
+            nf  = floor(Int32, n0 + lwin)
             s_n = multispec(data[n0:nf], ctr=true, dt=1/fs, NW=NW, K=K, pad=pad)
             psd .+= s_n.S[frmin:frmax]
             
@@ -55,7 +55,7 @@ Compute the cross spectral correlation of two signals
 """
 function _crosscorr(data_i::AbstractArray{T}, data_j::AbstractArray{T}, fs::J, NW::T, pad::T) where {T<:Real, J<:Int}
     
-    K   = convert(Int64, 2*NW - 1)
+    K   = convert(Int32, 2*NW - 1)
     sij = multispec(data_i, data_j, outp=:spec, dt=1/fs, NW=NW, K=K, ctr=true, pad=pad, guts=true)
     Si  = sum(sij.coef[1].coef, dims=2)
     Sj  = sum(sij.coef[2].coef, dims=2)
