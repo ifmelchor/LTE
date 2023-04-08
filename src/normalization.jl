@@ -35,7 +35,7 @@ function _spec_white!(A::AbstractArray{T,2}, fs::J, win_freq::T, fq_band::Vector
 
 end
 
-function _spec_white(data::AbstractArray{T}, fs::J, win_freq::T, fq_band::Vector{T}) where {T<:Real, J<:Real}
+function _spec_white(data::AbstractArray{T}, fs::J, win_freq::T, fq_band::Vector{T}) where {T<:Real, J<:Integer}
     U = deepcopy(data)
     _spec_white!(U, fs, win_freq, fq_band)
 

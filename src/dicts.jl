@@ -41,7 +41,7 @@ function _empty_dict(channels::Vector{String}, add_param::Bool, polar::Bool, nfs
 end
 
 
-function _empty_dict(channels::Vector{String}, nfs::Int32)
+function _empty_dict(channels::Vector{String}, nfs::Integer)
     dict = Dict()
     
     nsta = length(channels)

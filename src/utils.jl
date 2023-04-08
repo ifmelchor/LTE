@@ -11,7 +11,7 @@
 
 Return freq time series
 """
-function _fqbds(ndata::J, fs::J, fq_band::Vector{T}; pad::T=1.0) where {T<:Real, J<:Int}
+function _fqbds(ndata::J, fs::J, fq_band::Vector{T}; pad::T=1.0) where {T<:Real, J<:Integer}
     
     _, fftleng, halffreq = Multitaper.output_len(range(1,ndata), pad)
     freq    = Array{Float32}(fs*range(0,1,length=fftleng+1)[1:halffreq])
@@ -126,7 +126,7 @@ end
 Search for spikes and replace by nan
     compute mean
 """
-function _removeoutliers(data::AbstractArray{T}, twindow_in::J, twindow::J, threshold::T; return_mean::Bool=true) where {T<:Real, J<:Int}
+function _removeoutliers(data::AbstractArray{T}, twindow_in::J, twindow::J, threshold::T; return_mean::Bool=true) where {T<:Real, J<:Integer}
 
     ndat = size(data)[1]
     x = convert(Array{Union{Missing,Float32}}, data)
@@ -163,7 +163,7 @@ end
 
 normalization moving average as Benson et al. 2007
 """
-function _moving_avg!(data::AbstractArray{T}, halfwindow::J) where {T<:Any, J<:Int}
+function _moving_avg!(data::AbstractArray{T}, halfwindow::J) where {T<:Any, J<:Integer}
 
     # pad data
     npts  = size(data, 1)

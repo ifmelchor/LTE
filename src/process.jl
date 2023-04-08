@@ -9,7 +9,7 @@
 
 Funcion LTE-station para calculcar espectrograma, polargrama, etc...
 """
-function sta_run(data::Array{T,2}, channels::String, fs::J, nwin::J, lwin::J, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, fq_band::Tuple{T,T}, NW::T, pad::T, add_param::Bool, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Int}
+function sta_run(data::Array{T,2}, channels::String, fs::J, nwin::J, lwin::J, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, fq_band::Tuple{T,T}, NW::T, pad::T, add_param::Bool, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Integer}
 
     # convert channels to a Vector of strings and fq_band to a vector of floats
     channels =[String(ch) for ch in split(channels, "/")]
@@ -82,7 +82,7 @@ end
    polar_run(*args)
 Funcion para calcular el polargrama
 """
-function polar_run(data::Array{T,2}, fq_band::Tuple{T,T}, fs::J, NW::T, pad::T, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, full_return::Bool) where {T<:Real, J<:Int}
+function polar_run(data::Array{T,2}, fq_band::Tuple{T,T}, fs::J, NW::T, pad::T, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, full_return::Bool) where {T<:Real, J<:Integer}
 
     fq_band  = collect(fq_band)
 
@@ -110,7 +110,7 @@ end
 
 Funcion LTE-network para calculcar espectrograma y CSW (covariance spectral width) sugerido por Seydeux
 """
-function net_run(data::Array{T,2}, channels::String, fs::J, nswin::J, lswin::J, nadv::T, fq_band::Tuple{T,T}, NW::T, pad::T) where {T<:Real, J<:Int}
+function net_run(data::Array{T,2}, channels::String, fs::J, nswin::J, lswin::J, nadv::T, fq_band::Tuple{T,T}, NW::T, pad::T) where {T<:Real, J<:Integer}
 
     channels =[String(ch) for ch in split(channels, "/")]
     fq_band  = collect(fq_band)
@@ -198,6 +198,7 @@ function _netcore(data::AbstractArray{T}, channels::Vector{String}, base::Base, 
     for i in eachindex(csm_svd)
         s   = csm_svd[i]
         # spectral width
+        println(s.S)
         lte_dict["csw"][i] = dot(idx, s.S)/sum(s.S)
         # first eigenvector
         lte_dict["vt"][i,:] = s.Vt[1,:]

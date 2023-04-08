@@ -18,7 +18,7 @@ using Entropies
 
 Perform permutation entropy
 """
-function _PE(data::AbstractArray{T}, ord::J, delta::J, fq_band::Vector{T}, fs::J) where {T<:Real, J<:Int}
+function _PE(data::AbstractArray{T}, ord::J, delta::J, fq_band::Vector{T}, fs::J) where {T<:Real, J<:Integer}
 
     filt_data = _filter(data, fs, fq_band)
     PE = Entropies.permentropy(filt_data, τ=ord, m=delta, base=2)
@@ -32,7 +32,7 @@ end
 
 Compute DSAR measure
 """
-function _dsar(data::AbstractArray{T}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Int}
+function _dsar(data::AbstractArray{T}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Integer}
 
     # integrate seismic displacement
     ndata = length(data)
@@ -61,7 +61,7 @@ end
 
 Compute additional LTE parameters from seismic data
 """
-function _optparams(data::AbstractArray{T}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Int}
+function _optparams(data::AbstractArray{T}, fs::J, twindow::T, threshold::T) where {T<:Real, J<:Integer}
 
     remove_outlier = x -> _removeoutliers(x, convert(Int64, 15*fs), convert(Int64, twindow*fs), threshold)
 

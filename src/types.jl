@@ -2,7 +2,7 @@
 # coding=utf-8
 
 
-struct Base{T<:Real, J<:Int}
+struct Base{T<:Real, J<:Integer}
     fs        :: J                           # sampling rate
     fq_band   :: Vector{T}                   # frequency band
     fqminmax  :: Tuple{J, J}                 # position of fq band
@@ -57,7 +57,7 @@ struct OptParams{T<:Real}
 end
 
 
-struct PeakThresholds{T<:Real, J<:Int}
+struct PeakThresholds{T<:Real, J<:Integer}
     fq_dt     :: T
     sxx_th    :: T
     pdg_th    :: T
