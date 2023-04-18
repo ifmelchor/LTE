@@ -198,7 +198,6 @@ function _netcore(data::AbstractArray{T}, channels::Vector{String}, base::Base, 
     for i in eachindex(csm_svd)
         s   = csm_svd[i]
         # spectral width
-        println(s.S)
         lte_dict["csw"][i] = dot(idx, s.S)/sum(s.S)
         # first eigenvector
         lte_dict["vt"][i,:] = s.Vt[1,:]
