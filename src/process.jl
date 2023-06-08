@@ -9,14 +9,14 @@
 
 Funcion LTE-station para calculcar espectrograma, polargrama, etc...
 """
-function sta_run(data::Array{T,2}, channels::String, fs::J, nwin::J, lwin::J, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, fq_band::Tuple{T,T}, NW::T, pad::T, add_param::Bool, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Integer}
+function sta_run(data::Array{T,2}, channels::Tuple, fs::J, nwin::J, lwin::J, wadv::T, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, swadv::Union{T,Nothing}, fq_band::Vector{T}, NW::T, pad::T, add_param::Bool, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Integer}
 
-    # convert channels to a Vector of strings and fq_band to a vector of floats
-    channels =[String(ch) for ch in split(channels, "/")]
-    fq_band  = collect(fq_band)
-
-    if size(channels, 1) != size(data, 1)
+    if length(channels) != size(data, 1)
         throw(ArgumentError("nro of components and seismic-data-matrix raw's must be equal"))
+    end
+
+    if polar && length(channels) != 3
+        throw(ArgumentError("for polar analysis, the nro of components must be three"))
     end
 
     # compute the frequency domain
@@ -27,49 +27,90 @@ function sta_run(data::Array{T,2}, channels::String, fs::J, nwin::J, lwin::J, ns
     end
     
     # define base
-    base = Base(fs, fq_band, fqminmax, nswin, lswin, nadv, NW, pad, pe_order, pe_delta, ap_twin, ap_th)
+    base = Base(fs, fq_band, fqminmax, nswin, lswin, swadv, NW, pad, pe_order, pe_delta, ap_twin, ap_th)
     
     # create empty dict
     nfs = size(freq, 1)
     lte_dict = _empty_dict(channels, add_param, polar, nfs, nwin)
 
     for n in 1:nwin
-        n0 = 1 + floor(Int32, lwin*(n-1))
+        n0 = 1 + floor(Int32, lwin * wadv*(n-1))
         nf = floor(Int32, n0 + lwin)
         data_n = @view data[:, n0:nf]
 
+        stop = false
         for (c, chan) in enumerate(channels)
             if add_param && c==1
-                cspe, perm_entr, copt = _stacore(data_n[c, :], base, true)
-                lte_dict["opt"]["vlf"][n]  = copt.vlf
-                lte_dict["opt"]["lf"][n]   = copt.lf
-                lte_dict["opt"]["vlar"][n] = copt.vlar
-                lte_dict["opt"]["rsam"][n] = copt.rsam
-                lte_dict["opt"]["lrar"][n] = copt.lrar
-                lte_dict["opt"]["mf"][n]   = copt.mf
-                lte_dict["opt"]["rmar"][n] = copt.rmar
-                lte_dict["opt"]["hf"][n]   = copt.hf
-                lte_dict["opt"]["dsar"][n] = copt.dsar
+                compute_param = true
             else
-                cspe, perm_entr, _ = _stacore(data_n[c, :], base, false)
+                compute_param = false
             end
 
-            lte_dict[chan]["specgram"][n,:]  = cspe.S
-            lte_dict[chan]["energy"][n]      = cspe.erg
-            lte_dict[chan]["fq_dominant"][n] = cspe.dominant
-            lte_dict[chan]["fq_centroid"][n] = cspe.centroid
-            lte_dict[chan]["perm_entr"][n]   = perm_entr
+            try
+                cspe, perm_entr, copt = _stacore(data_n[c, :], base, compute_param)
+                lte_dict[chan]["specgram"][n,:]  = cspe.S
+                lte_dict[chan]["energy"][n]      = cspe.erg
+                lte_dict[chan]["fq_dominant"][n] = cspe.dominant
+                lte_dict[chan]["fq_centroid"][n] = cspe.centroid
+                lte_dict[chan]["perm_entr"][n]   = perm_entr
+                if compute_param
+                    lte_dict["opt"]["vlf"][n]  = copt.vlf
+                    lte_dict["opt"]["lf"][n]   = copt.lf
+                    lte_dict["opt"]["vlar"][n] = copt.vlar
+                    lte_dict["opt"]["rsam"][n] = copt.rsam
+                    lte_dict["opt"]["lrar"][n] = copt.lrar
+                    lte_dict["opt"]["mf"][n]   = copt.mf
+                    lte_dict["opt"]["rmar"][n] = copt.rmar
+                    lte_dict["opt"]["hf"][n]   = copt.hf
+                    lte_dict["opt"]["dsar"][n] = copt.dsar  
+                end
+            catch e
+                stop = true
+                lte_dict[chan]["specgram"][n,:]  .= NaN
+                lte_dict[chan]["energy"][n]      = NaN
+                lte_dict[chan]["fq_dominant"][n] = NaN
+                lte_dict[chan]["fq_centroid"][n] = NaN
+                lte_dict[chan]["perm_entr"][n]   = NaN
+                if compute_param
+                    lte_dict["opt"]["vlf"][n]  = NaN
+                    lte_dict["opt"]["lf"][n]   = NaN
+                    lte_dict["opt"]["vlar"][n] = NaN
+                    lte_dict["opt"]["rsam"][n] = NaN
+                    lte_dict["opt"]["lrar"][n] = NaN
+                    lte_dict["opt"]["mf"][n]   = NaN
+                    lte_dict["opt"]["rmar"][n] = NaN
+                    lte_dict["opt"]["hf"][n]   = NaN
+                    lte_dict["opt"]["dsar"][n] = NaN
+                end
+            end
         end
         
-        # only when three components are available
-        if  polar
-            polarP = _polar(data_n[:,:], base)
-            lte_dict["polar"]["degree"][n,:]  = polarP.degree
-            lte_dict["polar"]["rect"][n,:]    = polarP.rect
-            lte_dict["polar"]["azimuth"][n,:] = polarP.azimuth
-            lte_dict["polar"]["elev"][n,:]    = polarP.elev
-            lte_dict["polar"]["phyhh"][n,:]   = polarP.phyhh
-            lte_dict["polar"]["phyvh"][n,:]   = polarP.phyvh
+        if polar
+            if stop
+                lte_dict["polar"]["degree"][n,:]  .= NaN 
+                lte_dict["polar"]["rect"][n,:]    .= NaN 
+                lte_dict["polar"]["azimuth"][n,:] .= NaN 
+                lte_dict["polar"]["elev"][n,:]    .= NaN 
+                lte_dict["polar"]["phyhh"][n,:]   .= NaN 
+                lte_dict["polar"]["phyvh"][n,:]   .= NaN
+            else
+                try
+                    polarP = _polar(data_n[:,:], base)
+                    lte_dict["polar"]["degree"][n,:]  = polarP.degree
+                    lte_dict["polar"]["rect"][n,:]    = polarP.rect
+                    lte_dict["polar"]["azimuth"][n,:] = polarP.azimuth
+                    lte_dict["polar"]["elev"][n,:]    = polarP.elev
+                    lte_dict["polar"]["phyhh"][n,:]   = polarP.phyhh
+                    lte_dict["polar"]["phyvh"][n,:]   = polarP.phyvh
+                catch e
+                    lte_dict["polar"]["degree"][n,:]  .= NaN 
+                    lte_dict["polar"]["rect"][n,:]    .= NaN 
+                    lte_dict["polar"]["azimuth"][n,:] .= NaN 
+                    lte_dict["polar"]["elev"][n,:]    .= NaN 
+                    lte_dict["polar"]["phyhh"][n,:]   .= NaN 
+                    lte_dict["polar"]["phyvh"][n,:]   .= NaN
+                end
+            end
         end
     
     end
@@ -82,26 +123,66 @@ end
    polar_run(*args)
 Funcion para calcular el polargrama
 """
-function polar_run(data::Array{T,2}, fq_band::Tuple{T,T}, fs::J, NW::T, pad::T, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, full_return::Bool) where {T<:Real, J<:Integer}
-
-    fq_band  = collect(fq_band)
+function polar_run(data::Array{T,2}, fq_band::Vector{T}, fs::J, NW::T, pad::T, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, nadv::Union{T,Nothing}, return_all::Bool, full_return::Bool) where {T<:Real, J<:Integer}
 
     if size(data, 1) != 3
-        throw(ArgumentError("nro of components must be 3 for polarization analysis"))
+        throw(ArgumentError("the nro of components must be three"))
     end
 
     # compute the frequency domain
     if !isnothing(lswin)
-        freq, fqminmax = _fqbds(lswin, fs, fq_band, pad=pad)
+        freq, fqr = _fqbds(lswin, fs, fq_band, pad=pad)
     else
         lwin = size(data, 2)
-        freq, fqminmax = _fqbds(lwin, fs, fq_band, pad=pad)
+        freq, fqr = _fqbds(lwin, fs, fq_band, pad=pad)
     end
 
-    pe_order = pe_delta = ap_twin = ap_th = nothing
-    base = Base(fs, fq_band, fqminmax, nswin, lswin, nadv, NW, pad, pe_order, pe_delta, ap_twin, ap_th)
+    base = Base(fs, fq_band, fqr, nswin, lswin, nadv, NW, pad, nothing, nothing, nothing, nothing)
 
-    return freq, _polar(data, base, full_return=full_return)
+    return freq, _polar(data, base, return_all=return_all, full_return=full_return)
+end
+
+
+"""
+   csw_run(*args)
+Funcion para calcular el spectral width
+"""
+function csw_run(data::Array{T,2}, fq_band::Vector{T}, fs::J, NW::T, pad::T, nswin::J, lswin::J, nadv::T, return_vt::Bool; win_freq::T=0.33) where {T<:Real, J<:Integer}
+
+    nsta = size(data, 1)
+    if nsta < 3
+        throw(ArgumentError("the minimum nro of components must be three"))
+    end
+
+    # compute the frequency domain and define Base param
+    freq, fqr = _fqbds(lswin, fs, fq_band, pad=pad)
+    nfs = size(freq, 1)
+
+    # preprocess
+    _spec_white!(data, fs, win_freq, fq_band)
+
+    # compute CSM
+    csm_svd = _csm(data, fs, lswin, nswin, nadv, fqr, NW, pad)
+    csw = Array{Float32}(undef, nfs)
+
+    if return_vt
+        vt = Array{ComplexF32}(undef, nfs, nsta)
+    end
+
+    for i in eachindex(csm_svd)
+        s   = csm_svd[i]
+        csw[i] = dot(0:nsta-1, s.S) / sum(s.S) # spectral width
+        
+        if return_vt
+            vt[i,:] = s.Vt[1,:] # first eigenvector
+        end
+    end
+
+    if return_vt
+        return freq, csw, vt
+    else
+        return freq, csw
+    end
 end
 
 
@@ -110,29 +191,38 @@ end
 
 Funcion LTE-network para calculcar espectrograma y CSW (covariance spectral width) sugerido por Seydeux
 """
-function net_run(data::Array{T,2}, channels::String, fs::J, nswin::J, lswin::J, nadv::T, fq_band::Tuple{T,T}, NW::T, pad::T) where {T<:Real, J<:Integer}
+function net_run(data::Array{T,2}, channels::Tuple, fs::J, nwin::J, lwin::J, wadv::T, nswin::J, lswin::J, swadv::T, fq_band::Vector{T}, NW::T, pad::T) where {T<:Real, J<:Integer}
 
-    channels =[String(ch) for ch in split(channels, "/")]
-    fq_band  = collect(fq_band)
-    
-    nsta = size(data, 1)
-
-    if size(channels, 1) != nsta
+    if length(channels) != size(data, 1)
         throw(ArgumentError("nro of components and seismic-data-matrix raw's must be equal"))
     end
 
     # compute the frequency domain
     freq, fqminmax = _fqbds(lswin, fs, fq_band, pad=pad)
     
-    pe_order = pe_delta = ap_twin = ap_th = nothing
-    base = Base(fs, fq_band, fqminmax, nswin, lswin, nadv, NW, pad, pe_order, pe_delta, ap_twin, ap_th)
+    # define base srtuct
+    base = Base(fs, fq_band, fqminmax, nswin, lswin, nadv, NW, pad, nothing, nothing, nothing, nothing)
 
     # create empty dict
     nfs = size(freq, 1)
-    lte_dict = _empty_dict(channels, nfs)
+    lte_dict = _empty_dict(channels, nfs, nwin)
 
-    # compute parameters
-    _netcore(data, channels, base, lte_dict)
+    for n in 1:nwin
+        n0 = 1 + floor(Int32, lwin * wadv*(n-1))
+        nf = floor(Int32, n0 + lwin)
+        data_n = @view data[:, n0:nf]
+
+        # compute parameters
+        sxx_dict, csw_n, vt_n = _netcore(data_n, channels, base)
+
+        # save into lte_dict
+        for chan in channels
+            lte_dict[chan][n,:] = sxx_dict[chan]
+        end
+
+        lte_dict["csw"][n,:] = csw_n
+        lte_dict["vt"][n,:,:] = vt_n
+    end
 
     return lte_dict
 end
@@ -178,12 +268,13 @@ end
 
 Compute core parameters for LTE
 """
-function _netcore(data::AbstractArray{T}, channels::Vector{String}, base::Base, lte_dict::Dict) where T<:Real
+function _netcore(data::AbstractArray{T}, channels::Tuple, base::Base) where T<:Real
 
     # save specgram
+    sxx_dict = Dict()
     for (c, chan) in enumerate(channels)
         sxx, _ = _psd(data[c,:], base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
-        lte_dict[chan] = sxx
+        sxx_dict[chan] = sxx
     end
 
     # preprocess
@@ -192,15 +283,18 @@ function _netcore(data::AbstractArray{T}, channels::Vector{String}, base::Base, 
     # compute CSM
     csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
     
-    # compute spectral width and save Vt
-    nsta = size(channels,1)
-    idx = 0:nsta-1
+    # define empty arrays
+    nfs  = length(csm_svd)
+    nsta = length(channels)
+    csw_n = Array{Float32}(undef, nfs)
+    vt_n  = Array{ComplexF32}(undef, nfs, nsta) 
+    
+    # compute spectral width and Vt
     for i in eachindex(csm_svd)
         s   = csm_svd[i]
-        # spectral width
-        lte_dict["csw"][i] = dot(idx, s.S)/sum(s.S)
-        # first eigenvector
-        lte_dict["vt"][i,:] = s.Vt[1,:]
+        csw_n[i] = dot(0:nsta-1, s.S) / sum(s.S) # spectral width
+        vt_n[i,:] = s.Vt[1,:] # first eigenvector
     end
 
+    return sxx_dict, csw_n, vt_n
 end

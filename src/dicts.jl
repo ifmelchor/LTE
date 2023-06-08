@@ -11,7 +11,7 @@
 
 Genera un dict vacio para llenar durante el procesado.
 """
-function _empty_dict(channels::Vector{String}, add_param::Bool, polar::Bool, nfs::J, nwin::J) where J<:Integer
+function _empty_dict(channels::Tuple, add_param::Bool, polar::Bool, nfs::J, nwin::J) where J<:Integer
 
     dict = Dict()
     
@@ -30,7 +30,7 @@ function _empty_dict(channels::Vector{String}, add_param::Bool, polar::Bool, nfs
         end
     end
 
-    if length(channels)==3 && polar
+    if polar
         dict["polar"] = Dict()
         for attr in ("degree", "rect", "azimuth", "elev", "phyhh", "phyvh")
             dict["polar"][attr] = Array{Float32}(undef, nwin, nfs)
@@ -41,17 +41,17 @@ function _empty_dict(channels::Vector{String}, add_param::Bool, polar::Bool, nfs
 end
 
 
-function _empty_dict(channels::Vector{String}, nfs::Integer)
+function _empty_dict(channels::Tuple, nfs::J, nwin::J) where J<:Integer
     dict = Dict()
     
     nsta = length(channels)
     
     for chan in channels
-        dict[chan] = Array{Float32}(undef, nfs)
+        dict[chan] = Array{Float32}(undef, nwin, nfs)
     end
 
-    dict["csw"]   = Array{Float32}(undef, nfs)
-    dict["vt"]    = Array{ComplexF32}(undef, nfs, nsta)
+    dict["csw"]   = Array{Float32}(undef, nwin, nfs)
+    dict["vt"]    = Array{ComplexF32}(undef, nwin, nfs, nsta)
 
     return dict
 end

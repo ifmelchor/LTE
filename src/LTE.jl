@@ -16,7 +16,7 @@ module LTE
     using FFTW
     using Multitaper
     
-    export sta_run, net_run, polar_run
+    export sta_run, net_run, polar_run, csw_run
     export extract, PeakThresholds
 
     include("types.jl")

@@ -11,32 +11,65 @@
 Functions for computing polarization analysis in the frequency domain
 
 """
-function _polar(data::AbstractArray{T}, base::Base; full_return::Bool=true) where T<:Real
+function _polar(data::AbstractArray{T}, base::Base; return_all::Bool=false, full_return::Bool=true) where T<:Real
 
     # compute de the SVD of the spectral covariance matrix of ZNE data
-    csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
+    csm_svd = _csm(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad, return_all=return_all)
 
-    # compute polar degree
-    degree = [(3*sum(s.S.^2)-sum(s.S)^2)/(2*sum(s.S)^2) for s in csm_svd]
-    
-    if full_return
-        # compute rectilinearity of Vt
-        z_rot = map(_rotate_vector, [s.Vt[1,:] for s in csm_svd])
-        rect  = map(_rectiliniarity, z_rot)
-        
-        # get angles
-        angles = map(_angles, z_rot)
-        azi = [a.azimuth for a in angles]
-        ele = [a.elev for a in angles]
-        pHH = [a.phyhh for a in angles]
-        pVH = [a.phyvh for a in angles]
+    if return_all && !isnothing(base.nswin)
+        frmin, frmax = base.fqminmax
+        nfs = frmax-frmin+1
+        degree = Array{Float32}(undef, base.nswin, nfs)
 
-        return PParams(degree, rect, azi, ele, pHH, pVH)
-    
+        if full_return
+            rect = Array{Float32}(undef, base.nswin, nfs)
+            azi  = Array{Float32}(undef, base.nswin, nfs)
+            ele  = Array{Float32}(undef, base.nswin, nfs)
+            pHH  = Array{Float32}(undef, base.nswin, nfs)
+            pVH  = Array{Float32}(undef, base.nswin, nfs)
+        end
+
+        for n in 1:base.nswin
+            degree[n,:] = [(3*sum(s.S.^2)-sum(s.S)^2)/(2*sum(s.S)^2) for s in csm_svd[n]]
+
+            if full_return
+                z_rot = map(_rotate_vector, [s.Vt[1,:] for s in csm_svd[n]])
+                rect[n,:] = map(_rectiliniarity, z_rot)
+                angles = map(_angles, z_rot)
+                azi[n,:] = [a.azimuth for a in angles]
+                ele[n,:] = [a.elev for a in angles]
+                pHH[n,:] = [a.phyhh for a in angles]
+                pVH[n,:] = [a.phyvh for a in angles]
+                to_return = PParams(degree, rect, azi, ele, pHH, pVH) 
+            else
+                to_return = degree
+            end
+        end
+
     else
-        return degree
+        # compute polar degree
+        degree = [(3*sum(s.S.^2)-sum(s.S)^2)/(2*sum(s.S)^2) for s in csm_svd]
+        
+        if full_return
+            # compute rectilinearity of Vt
+            z_rot = map(_rotate_vector, [s.Vt[1,:] for s in csm_svd])
+            rect  = map(_rectiliniarity, z_rot)
+            
+            # get angles
+            angles = map(_angles, z_rot)
+            azi = [a.azimuth for a in angles]
+            ele = [a.elev for a in angles]
+            pHH = [a.phyhh for a in angles]
+            pVH = [a.phyvh for a in angles]
 
+            to_return = PParams(degree, rect, azi, ele, pHH, pVH)    
+        else
+            to_return = degree
+        end
     end
+
+    return to_return
+
 end
 
 
