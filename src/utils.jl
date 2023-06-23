@@ -5,6 +5,8 @@
 
 # Ivan Melchor
 
+using DSP
+using PointwiseKDEs
 
 """
     _fqbds(*args)
@@ -27,70 +29,19 @@ end
 
 
 """
-  fb2(*args)
-    
-    Filter buterworth second order desgin
+    _filter(*args)
+
+Filter a time series using a Bandpass Butterworth of second order
 """
-function _fb2(x::Array{T}, fc::T, fs::J, lowpass::Bool; amort=0.47) where {T<:Real, J<:Real}
-
-  a = tan(pi*fc/fs)
-  b = 2*a*a - 2
-  c = 1 - 2*amort*a + a*a
-  d = 1 + 2*amort*a + a*a
-
-  if lowpass
-    a0 = a*a/d
-    a1 = 2*a0
-  else
-    a0 = 1/d
-    a1 = -2*a0
-  end
-  
-  a2 = a0
-  b1 = -b/d
-  b2 = -c/d   
-  
-  ndata = size(x, 1)
-  y = Array{T}(undef, ndata)
-  y[1] = x[1]
-  y[2] = x[2]
-
-  for j in 3:ndata
-    y[j] = a0*x[j] + a1*x[j-1] + a2*x[j-2] + b1*y[j-1] + b2*y[j-2]
-  end
-
-  return y
-end
-
-
-function _filter!(data::Array{T,2}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
-
-  nsta = size(data,1)
-  for i in 1:nsta
-    _filter!(data[i,:], fs, fq_band)
-  end
-
-end
-
-function _filter!(data::Array{T,1}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
-    
-    fl, fh = fq_band
-    temp = _fb2(data, fh, fs, true)
-    data = _fb2(temp, fl, fs, false)
-    temp = reverse(data)
-    data = _fb2(temp, fh, fs, true)
-    temp = _fb2(data, fl, fs, false)
-    data = reverse(temp)
-  
-end
-
-
 function _filter(data::Array{T}, fs::J, fq_band::Vector{T}) where {T<:Real, J<:Real}
-    U = deepcopy(data)
-    _filter!(U, fs, fq_band)
+    # U = deepcopy(data)
+    # _filter!(U, fs, fq_band)
 
-    return U
+    filter = digitalfilter(Bandpass(fq_band[1], fq_band[2], fs=fs), Butterworth(2))
+
+    return filtfilt(filter, data)
 end
+
 
 """
     _standarize(*args)
@@ -129,8 +80,8 @@ Search for spikes and replace by nan
 function _removeoutliers(data::AbstractArray{T}, twindow_in::J, twindow::J, threshold::T; return_mean::Bool=true) where {T<:Real, J<:Integer}
 
     ndat = size(data)[1]
-    x = convert(Array{Union{Missing,Float32}}, data)
-    z = convert(Array{Union{Missing,Float32}}, _standarize(data))
+    x = convert(Array{Float32}, data)
+    z = convert(Array{Float32}, _standarize(data))
     cond = z .> threshold
 
     for i in eachindex(cond)
@@ -146,14 +97,21 @@ function _removeoutliers(data::AbstractArray{T}, twindow_in::J, twindow::J, thre
                 nfi = ndat
             end
 
-            x[nin:nfi] .= missing
+            x[nin:nfi] .= NaN
         end
     end
 
-    if return_mean
-        return mean(skipmissing(x))
+    # exclude NaN
+    x = x[map(!isnan,x)]
+
+    if length(x) > 1
+        if return_mean
+            return mean(x)
+        else
+            return x
+        end
     else
-        return x
+        return NaN
     end
 end
 
@@ -224,4 +182,21 @@ function _circstd(data::Array{T}; high=pi, low=0., normalize=false) where T<:Rea
     end
 
     return res
+end
+
+
+
+function _mostprobval(data::Array{T}) where T<:Real
+    data = reshape(data, (1, :))
+    data = convert(Array{Float64}, data)
+    data_min = findmin(data)[1]
+    data_max = findmax(data)[1]
+    x_space = LinRange(data_min, data_max, 100)
+
+    # compute the probability density function
+    kde = PointwiseKDE(data)
+    y_space = reshape(rand(kde, 100),100)
+
+    return x_space[findmax(y_space)[2]]
+
 end
