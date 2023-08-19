@@ -11,22 +11,15 @@
 
 Genera un dict vacio para llenar durante el procesado.
 """
-function _empty_dict(channels::Tuple, add_param::Bool, polar::Bool, nfs::J, nwin::J) where J<:Integer
+function _empty_dict(channels::Tuple, polar::Bool, nfs::J, nwin::J) where J<:Integer
 
     dict = Dict()
     
-    for chan in channels
+    for (c, chan) in enumerate(channels)
         dict[chan] = Dict()
-        dict[chan]["specgram"] = Array{Float32}(undef, nwin, nfs)
-        for attr in ("energy", "fq_dominant", "fq_centroid", "perm_entr")
-            dict[chan][attr] = Array{Float32}(undef, nwin)
-        end
-    end
-
-    if add_param
-        dict["opt"] = Dict()
-        for attr in ("vlf", "lf", "vlar", "rsam", "lrar", "mf", "rmar", "hf", "dsar")
-            dict["opt"][attr] = Array{Float32}(undef, nwin)
+        dict[chan]["specgram"]  = Array{Float32}(undef, nwin, nfs)
+        for attr in ("perm_entr", "vlf", "lf", "vlar", "rsam", "lrar", "mf", "rmar", "hf", "dsar")
+                dict[chan][attr] = Array{Float32}(undef, nwin)
         end
     end
 

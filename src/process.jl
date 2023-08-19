@@ -9,7 +9,7 @@
 
 Funcion LTE-station para calculcar espectrograma, polargrama, etc...
 """
-function sta_run(data::Array{T,2}, channels::Tuple, fs::J, nwin::J, lwin::J, wadv::T, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, swadv::Union{T,Nothing}, fq_band::Vector{T}, NW::T, pad::T, add_param::Bool, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Integer}
+function sta_run(data::Array{T,2}, channels::Tuple, fs::J, nwin::J, lwin::J, wadv::T, nswin::Union{J,Nothing}, lswin::Union{J,Nothing}, swadv::Union{T,Nothing}, fq_band::Vector{T}, NW::T, pad::T, polar::Bool, pe_order::J, pe_delta::J, ap_twin::T, ap_th::T) where {T<:Real, J<:Integer}
 
     if length(channels) != size(data, 1)
         throw(ArgumentError("nro of components and seismic-data-matrix raw's must be equal"))
@@ -31,62 +31,20 @@ function sta_run(data::Array{T,2}, channels::Tuple, fs::J, nwin::J, lwin::J, wad
     
     # create empty dict
     nfs = size(freq, 1)
-    lte_dict = _empty_dict(channels, add_param, polar, nfs, nwin)
+    lte_dict = _empty_dict(channels, polar, nfs, nwin)
 
     for n in 1:nwin
         n0 = 1 + floor(Int32, lwin * wadv*(n-1))
         nf = floor(Int32, n0 + lwin)
         data_n = @view data[:, n0:nf]
 
-        stop = false
+        stop = 0
         for (c, chan) in enumerate(channels)
-            if add_param && c==1
-                compute_param = true
-            else
-                compute_param = false
-            end
-
-            try
-                cspe, perm_entr, copt = _stacore(data_n[c, :], base, compute_param)
-                lte_dict[chan]["specgram"][n,:]  = cspe.S
-                lte_dict[chan]["energy"][n]      = cspe.erg
-                lte_dict[chan]["fq_dominant"][n] = cspe.dominant
-                lte_dict[chan]["fq_centroid"][n] = cspe.centroid
-                lte_dict[chan]["perm_entr"][n]   = perm_entr
-                if compute_param
-                    lte_dict["opt"]["vlf"][n]  = copt.vlf
-                    lte_dict["opt"]["lf"][n]   = copt.lf
-                    lte_dict["opt"]["vlar"][n] = copt.vlar
-                    lte_dict["opt"]["rsam"][n] = copt.rsam
-                    lte_dict["opt"]["lrar"][n] = copt.lrar
-                    lte_dict["opt"]["mf"][n]   = copt.mf
-                    lte_dict["opt"]["rmar"][n] = copt.rmar
-                    lte_dict["opt"]["hf"][n]   = copt.hf
-                    lte_dict["opt"]["dsar"][n] = copt.dsar  
-                end
-            catch e
-                stop = true
-                lte_dict[chan]["specgram"][n,:]  .= NaN
-                lte_dict[chan]["energy"][n]      = NaN
-                lte_dict[chan]["fq_dominant"][n] = NaN
-                lte_dict[chan]["fq_centroid"][n] = NaN
-                lte_dict[chan]["perm_entr"][n]   = NaN
-                if compute_param
-                    lte_dict["opt"]["vlf"][n]  = NaN
-                    lte_dict["opt"]["lf"][n]   = NaN
-                    lte_dict["opt"]["vlar"][n] = NaN
-                    lte_dict["opt"]["rsam"][n] = NaN
-                    lte_dict["opt"]["lrar"][n] = NaN
-                    lte_dict["opt"]["mf"][n]   = NaN
-                    lte_dict["opt"]["rmar"][n] = NaN
-                    lte_dict["opt"]["hf"][n]   = NaN
-                    lte_dict["opt"]["dsar"][n] = NaN
-                end
-            end
+            stop += _stacore(data_n[c, :], base, lte_dict[chan], n)
         end
         
         if polar
-            if stop
+            if stop != 0
                 lte_dict["polar"]["degree"][n,:]  .= NaN 
                 lte_dict["polar"]["rect"][n,:]    .= NaN 
                 lte_dict["polar"]["azimuth"][n,:] .= NaN 
@@ -94,22 +52,13 @@ function sta_run(data::Array{T,2}, channels::Tuple, fs::J, nwin::J, lwin::J, wad
                 lte_dict["polar"]["phyhh"][n,:]   .= NaN 
                 lte_dict["polar"]["phyvh"][n,:]   .= NaN
             else
-                try
-                    polarP = _polar(data_n[:,:], base)
-                    lte_dict["polar"]["degree"][n,:]  = polarP.degree
-                    lte_dict["polar"]["rect"][n,:]    = polarP.rect
-                    lte_dict["polar"]["azimuth"][n,:] = polarP.azimuth
-                    lte_dict["polar"]["elev"][n,:]    = polarP.elev
-                    lte_dict["polar"]["phyhh"][n,:]   = polarP.phyhh
-                    lte_dict["polar"]["phyvh"][n,:]   = polarP.phyvh
-                catch e
-                    lte_dict["polar"]["degree"][n,:]  .= NaN 
-                    lte_dict["polar"]["rect"][n,:]    .= NaN 
-                    lte_dict["polar"]["azimuth"][n,:] .= NaN 
-                    lte_dict["polar"]["elev"][n,:]    .= NaN 
-                    lte_dict["polar"]["phyhh"][n,:]   .= NaN 
-                    lte_dict["polar"]["phyvh"][n,:]   .= NaN
-                end
+                polarP = _polar(data_n[:,:], base)
+                lte_dict["polar"]["degree"][n,:]  = polarP.degree
+                lte_dict["polar"]["rect"][n,:]    = polarP.rect
+                lte_dict["polar"]["azimuth"][n,:] = polarP.azimuth
+                lte_dict["polar"]["elev"][n,:]    = polarP.elev
+                lte_dict["polar"]["phyhh"][n,:]   = polarP.phyhh
+                lte_dict["polar"]["phyvh"][n,:]   = polarP.phyvh
             end
         end
     
@@ -233,33 +182,43 @@ end
 
 Compute core parameters for LTE
 """
-function _stacore(data::AbstractArray{T}, base::Base, opt_params::Bool) where T<:Real
+function _stacore(data::AbstractArray{T}, base::Base, dict_to_save::Dict, n::Integer) where T<:Real
 
-    # compute psd
-    sxx, freq = _psd(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
+    stop = false
 
-    # dominant freq
-    domfreq = freq[findmax(sxx)[2]]
-            
-    # centroid freq
-    cenfreq = dot(freq,sxx)/sum(sxx)
-            
-    # energy
-    erg = sum(sxx)
-
-    # crate spectral struct
-    spec_p = SParams(sxx, erg, domfreq, cenfreq)
-
-    # permutation entropy
-    perm_entr = _PE(data, base.pe_order, base.pe_delta, base.fq_band, base.fs)
-
-    if opt_params
+    try
+        sxx, freq = _psd(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
+        dict_to_save["specgram"][n,:] = sxx
+        dict_to_save["perm_entr"][n]  = _PE(data, base.pe_order, base.pe_delta, base.fq_band, base.fs)
+        
         opt_p = _optparams(data, base.fs, base.ap_twin, base.ap_th)
-    else
-        opt_p = nothing
-    end
+        dict_to_save["vlf"][n]  = opt_p.vlf
+        dict_to_save["lf"][n]   = opt_p.lf
+        dict_to_save["vlar"][n] = opt_p.vlar
+        dict_to_save["rsam"][n] = opt_p.rsam
+        dict_to_save["lrar"][n] = opt_p.lrar
+        dict_to_save["mf"][n]   = opt_p.mf
+        dict_to_save["rmar"][n] = opt_p.rmar
+        dict_to_save["hf"][n]   = opt_p.hf
+        dict_to_save["dsar"][n] = opt_p.dsar
 
-    return spec_p, perm_entr, opt_p
+    catch e
+        println(e)
+        stop = true
+        dict_to_save["specgram"][n,:] .= NaN
+        dict_to_save["perm_entr"][n]   = NaN
+        dict_to_save["vlf"][n]         = NaN
+        dict_to_save["lf"][n]          = NaN
+        dict_to_save["vlar"][n]        = NaN
+        dict_to_save["rsam"][n]        = NaN
+        dict_to_save["lrar"][n]        = NaN
+        dict_to_save["mf"][n]          = NaN
+        dict_to_save["rmar"][n]        = NaN
+        dict_to_save["hf"][n]          = NaN
+        dict_to_save["dsar"][n]        = NaN
+end
+
+    return stop
 end
 
 
