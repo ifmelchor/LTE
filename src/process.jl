@@ -190,7 +190,6 @@ function _stacore(data::AbstractArray{T}, base::Base, dict_to_save::Dict, n::Int
         sxx, freq = _psd(data, base.fs, base.lswin, base.nswin, base.nadv, base.fqminmax, base.NW, base.pad)
         dict_to_save["specgram"][n,:] = sxx
         dict_to_save["perm_entr"][n]  = _PE(data, base.pe_order, base.pe_delta, base.fq_band, base.fs)
-        
         opt_p = _optparams(data, base.fs, base.ap_twin, base.ap_th)
         dict_to_save["vlf"][n]  = opt_p.vlf
         dict_to_save["lf"][n]   = opt_p.lf
@@ -203,7 +202,7 @@ function _stacore(data::AbstractArray{T}, base::Base, dict_to_save::Dict, n::Int
         dict_to_save["dsar"][n] = opt_p.dsar
 
     catch e
-        println(e)
+        println("Error in _stacore for ", n)
         stop = true
         dict_to_save["specgram"][n,:] .= NaN
         dict_to_save["perm_entr"][n]   = NaN
