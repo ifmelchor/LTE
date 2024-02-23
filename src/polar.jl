@@ -181,3 +181,65 @@ function _angles(z::Array{C}) where C<:Complex
     return Angles(tH*180/pi, _elevation(z), pHH, pVH)
 end
 
+
+function time_polar(u::Array{T,2}) where T<:Real
+
+   # compute covariance matrix
+   C = Array{T}(undef, (3, 3))
+   for i in 1:3, j in 1:3
+    C[i,j] = cov(u[i,:],u[j,:])
+   end
+
+   # compute eigenanalysis
+   # and sort into ascending order 
+   f  = eigen(C, sortby=+)
+   d  = f.values # eigenvalues
+   v3 = f.vectors[:,3] #eigenvector for the first eigenvalue
+
+   # v3[1] is Z component
+   # v3[2] is N component
+   # v3[3] is E component
+
+   # calculate the rectilinearity
+   rL = 1 - (d[1]+d[2])/(2*d[3])
+
+   # calculate the azimuth clockwise from N
+   baz = atan(v3[3], v3[2]) * (180/pi)
+   if baz < 0
+    baz += 360
+   end
+
+   # 180 ambiguity
+   if baz > 180
+      baz -= 180
+   end
+
+   # calculate incidence angle. 0 is vertical, 90 horizontal
+   inc = atan(abs( sqrt(v3[2]^2 + v3[3]^2)/v3[1] )) * (180/pi)
+
+
+   return rL, baz, inc
+end
+
+
+function time_polar(u::Array{T,2}, win::J, olap::T=0.0) where {T<:Real, J<:Integer}
+
+   npts = size(u, 2)
+   nolp   = round(Int, win*olap)
+   nadv = win - nolp
+   N    = floor(Int, (npts - 1 - nolp) / nadv)
+   no = 1
+   rL  = Array{T}(undef, N)
+   baz = Array{T}(undef, N)
+   inc = Array{T}(undef, N)
+   
+   for i in 1:N
+      un_pol = time_polar(u[:, no:no+win])
+      rL[i]  = un_pol[1]
+      baz[i] = un_pol[2]
+      inc[i] = un_pol[3]
+      no += nadv
+   end
+
+   return rL, baz, inc
+end

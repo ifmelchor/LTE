@@ -18,6 +18,7 @@ module LTE
     
     export sta_run, net_run, polar_run, csw_run
     export extract, PeakThresholds
+    export time_polar
 
     include("types.jl")
 
